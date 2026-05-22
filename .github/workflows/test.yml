@@ -42,3 +42,18 @@ jobs:
 
       - name: Run tests
         run: cd frontend && npm test
+
+  test-e2e:
+    name: Test E2E
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: ./.github/actions/setup-playwright
+        with:
+          install-command: npm ci --prefix frontend
+
+      - name: Run E2E tests
+        run: cd frontend && npm run test:e2e

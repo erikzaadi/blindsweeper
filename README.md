@@ -128,6 +128,50 @@ The script skips files that already exist. Delete the ones you want to regenerat
 
 ---
 
+## Deployment
+
+The app is deployed as static files to S3 + CloudFront at **https://blindsweeper.erikzaadi.com**.
+
+Deployments are triggered by pushing a version tag. Use the bump-version script:
+
+```bash
+npm run bump-version       # creates annotated tag vX.Y.Z
+git push origin vX.Y.Z    # triggers the deploy workflow
+```
+
+The GitHub Actions deploy workflow builds the frontend, syncs to S3 with split cache headers (long TTL for hashed assets, no-cache for `index.html`), and invalidates CloudFront.
+
+Infrastructure is managed with Terraform under `terraform/`. See `terraform/terraform.tfvars.example` for the required variables.
+
+---
+
+## Mobile QA Checklist
+
+Before tagging a release, verify on a real mobile device:
+
+- Dragging over the black board produces increasing vibration near mines
+- On a device without vibration, the proximity meter and color fallback activate
+- Stopping and tapping a mine marks it
+- Dragging into an unmarked mine explodes and shows the failure screen
+- Tapping a non-mine marks it with a proximity hint
+- Tapping a marked mine toggles it back to unmarked
+- Completing a level creates a harder next level
+- Local profile progress survives page reload
+- On a supported browser, the app can be added to the home screen and launches without browser chrome
+
+---
+
+## Deferred (v1 non-goals)
+
+- Cross-device sync - profiles are local browser save slots only
+- Authentication
+- Anti-cheat - mine coordinates are held client-side
+- Richer telemetry / analytics
+- Playwright E2E tests - deferred until core flow stabilises
+- Service worker / offline mode - installability metadata is present but no SW registered
+
+---
+
 ## Design
 
 The visual design follows a single north star: **The Dead of Night**.

@@ -30,6 +30,8 @@ Targeted variants:
 | Script | What it checks |
 |---|---|
 | `npm run lint:frontend` | ESLint on `frontend/src` |
+| `npm run lint:bash` | shellcheck on `scripts/*.sh` |
+| `npm run lint:workflows` | actionlint + yamllint + shellcheck |
 | `npm run tsc:frontend` | TypeScript check on `frontend` |
 | `npm run test:frontend` | Frontend unit tests |
 
@@ -51,6 +53,18 @@ frontend/src/
 
 scripts/
   generateStaticAssets.mjs   # Dev-only OpenAI static asset generator
+  bump-version.sh            # Creates next patch tag (vX.Y.Z)
+
+terraform/                   # S3 + CloudFront + ACM + Route53 + IAM
+  modules/frontend/          # S3 bucket, CloudFront distribution, ACM cert
+  modules/dns/               # Route53 alias record
+  modules/iam/               # Deploy IAM user
+  terraform.tfvars.example   # Copy to terraform.tfvars and fill in values
+
+.github/workflows/
+  deploy.yml    # Deploy on v* tag push
+  lint.yml      # ESLint, tsc, actionlint, yamllint, shellcheck
+  test.yml      # Frontend unit tests
 ```
 
 ## Coding conventions
@@ -68,6 +82,21 @@ scripts/
 ## Local persistence
 
 Store one versioned JSON document in localStorage. Treat stored data as untrusted: parse defensively, validate shape, and recover to an empty state if data is corrupt. Add explicit migrations when the schema changes.
+
+## Deployment
+
+Static files are served from S3 + CloudFront at https://blindsweeper.erikzaadi.com.
+
+To release:
+
+```bash
+npm run bump-version       # creates annotated tag vX.Y.Z
+git push origin vX.Y.Z    # triggers .github/workflows/deploy.yml
+```
+
+The deploy workflow builds the frontend, syncs to S3, invalidates CloudFront, and records the deployed SHA in SSM for change detection on the next run.
+
+Infrastructure is in `terraform/`. One-time setup: fill in `terraform/terraform.tfvars` from `terraform.tfvars.example` and run `terraform -chdir=terraform apply`. Outputs provide the GitHub Actions secrets (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `FRONTEND_BUCKET_NAME`, `CF_DIST_ID`, `FRONTEND_DOMAIN`) - set these as environment secrets in the `production` environment.
 
 ## Static assets
 

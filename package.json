@@ -15,6 +15,7 @@
     "lint:bash": "shellcheck -x --severity=warning scripts/*.sh",
     "lint:workflows": "actionlint && yamllint .github/workflows/ && shellcheck -x --severity=warning scripts/*.sh",
     "test:frontend": "npm run test --prefix frontend",
+    "test:e2e": "npm run test:e2e --prefix frontend -- --project=mobile-chrome",
     "test": "npm run test:frontend",
     "lint": "npm run lint:frontend",
     "tsc:frontend": "npm run tsc --prefix frontend",
