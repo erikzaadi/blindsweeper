@@ -1,0 +1,15 @@
+aws_region = "eu-west-1"
+
+# Your Route 53 hosted zone root domain
+hosted_zone_name = "yourdomain.com"
+
+# Subdomain for the app (must exist under hosted_zone_name)
+frontend_domain = "blindsweeper.yourdomain.com"
+
+# S3 bucket name - must be globally unique across all AWS accounts
+frontend_bucket_name = "blindsweeper-frontend"
+
+ssm_parameter_prefix = "/blindsweeper/prod"
+
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored - never commit it.
