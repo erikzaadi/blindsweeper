@@ -45,6 +45,12 @@ const ASSETS = [
     purpose: "Marked cell flag asset",
     prompt: "A centered stylized mine marker flag game token for BlindSweeper, emerald green flag on a short pin, tactile and crisp, transparent-looking plain background, polished mobile game asset, no text.",
   },
+  {
+    filename: "images/game/mark-confirmed.png",
+    size: "1024x1024",
+    purpose: "Confirmed mine cell asset (mark with maximum proximity signal)",
+    prompt: "A centered stylized confirmed mine game token for BlindSweeper: a small dark spherical mine with a glowing emerald-green ring halo around it, the ring suggesting a lock or verification signal, dark charcoal mine shell, crisp teal-green glow, transparent-looking plain background, polished mobile game asset, no text.",
+  },
 ];
 
 async function main() {

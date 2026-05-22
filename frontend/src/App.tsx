@@ -46,6 +46,7 @@ const TAP_DURATION_THRESHOLD_MS = 450;
 const FEEDBACK_COOLDOWN_MS = 80;
 const GESTURE_HINT_KEY = "blindsweeper:gesture-hint-dismissed";
 const MARK_ASSET_URL = assetUrl("images/game/mark.png");
+const MARK_CONFIRMED_ASSET_URL = assetUrl("images/game/mark-confirmed.png");
 const BOMB_ASSET_URL = assetUrl("images/game/bomb.png");
 const EXPLOSION_ASSET_URL = assetUrl("images/game/explosion.png");
 
@@ -727,7 +728,7 @@ function BoardShell({
                   alt=""
                   className="pointer-events-none absolute inset-1 h-[calc(100%-0.5rem)] w-[calc(100%-0.5rem)] object-contain"
                   draggable="false"
-                  src={MARK_ASSET_URL}
+                  src={markHint && formatMarkHint(markHint.intensity) === "9" ? MARK_CONFIRMED_ASSET_URL : MARK_ASSET_URL}
                 />
               ) : null}
               {markHint ? (
