@@ -1,1 +1,1 @@
-export type * from "@blindsweeper/shared";
+export type * from "../game/types";

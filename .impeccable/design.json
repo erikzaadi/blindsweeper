@@ -1,0 +1,222 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-22T00:00:00.000Z",
+  "title": "Design System: BlindSweeper",
+  "extensions": {
+    "colorMeta": {
+      "cleared-signal": {
+        "role": "primary",
+        "displayName": "Cleared Signal",
+        "canonical": "oklch(79% 0.149 160)",
+        "tonalRamp": [
+          "oklch(15% 0.04 160)",
+          "oklch(25% 0.07 160)",
+          "oklch(35% 0.10 160)",
+          "oklch(48% 0.13 160)",
+          "oklch(60% 0.16 160)",
+          "oklch(72% 0.17 160)",
+          "oklch(82% 0.14 160)",
+          "oklch(91% 0.07 160)"
+        ]
+      },
+      "cleared-signal-bright": {
+        "role": "primary-light",
+        "displayName": "Cleared Signal Bright",
+        "canonical": "oklch(85% 0.115 164)",
+        "tonalRamp": [
+          "oklch(15% 0.04 164)",
+          "oklch(28% 0.07 164)",
+          "oklch(42% 0.10 164)",
+          "oklch(56% 0.13 164)",
+          "oklch(68% 0.14 164)",
+          "oklch(78% 0.13 164)",
+          "oklch(85% 0.115 164)",
+          "oklch(93% 0.06 164)"
+        ]
+      },
+      "void": {
+        "role": "neutral-bg",
+        "displayName": "Page Void",
+        "canonical": "oklch(3.5% 0.002 280)",
+        "tonalRamp": [
+          "oklch(2% 0.001 280)",
+          "oklch(4% 0.002 280)",
+          "oklch(8% 0.002 280)",
+          "oklch(15% 0.003 280)",
+          "oklch(21% 0.004 280)",
+          "oklch(28% 0.005 280)",
+          "oklch(37% 0.006 280)",
+          "oklch(55% 0.008 280)"
+        ]
+      },
+      "board-void": {
+        "role": "neutral-bg-deep",
+        "displayName": "Board Void",
+        "canonical": "oklch(0% 0 0)",
+        "tonalRamp": [
+          "oklch(0% 0 0)",
+          "oklch(3% 0.001 280)",
+          "oklch(6% 0.002 280)",
+          "oklch(10% 0.002 280)",
+          "oklch(15% 0.003 280)",
+          "oklch(22% 0.004 280)",
+          "oklch(30% 0.005 280)",
+          "oklch(45% 0.007 280)"
+        ]
+      },
+      "border-subtle": {
+        "role": "neutral-border",
+        "displayName": "Border Subtle",
+        "canonical": "oklch(27.9% 0.007 286)",
+        "tonalRamp": [
+          "oklch(8% 0.002 286)",
+          "oklch(14% 0.003 286)",
+          "oklch(21% 0.005 286)",
+          "oklch(28% 0.007 286)",
+          "oklch(37% 0.009 286)",
+          "oklch(50% 0.010 286)",
+          "oklch(65% 0.010 286)",
+          "oklch(80% 0.007 286)"
+        ]
+      },
+      "danger": {
+        "role": "error",
+        "displayName": "Danger",
+        "canonical": "oklch(70.4% 0.191 22)",
+        "tonalRamp": [
+          "oklch(15% 0.05 22)",
+          "oklch(25% 0.09 22)",
+          "oklch(38% 0.14 22)",
+          "oklch(50% 0.18 22)",
+          "oklch(60% 0.20 22)",
+          "oklch(70% 0.191 22)",
+          "oklch(80% 0.16 22)",
+          "oklch(90% 0.09 22)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Home screen title only. One instance per session." },
+      "headline": { "displayName": "Headline", "purpose": "Settings page title. One per screen maximum." },
+      "body": { "displayName": "Body", "purpose": "Descriptions, setting labels, supporting copy." },
+      "label": { "displayName": "Label", "purpose": "Navigation chrome, game-state readouts, all button text. Uppercase + wide tracking." }
+    },
+    "shadows": [
+      {
+        "name": "proximity-glow",
+        "value": "inset 0 0 [dynamic]px rgba(16, 185, 129, [dynamic])",
+        "purpose": "Game board only. Intensity driven by proximity to nearest mine. Not a design token; a game mechanic in CSS."
+      },
+      {
+        "name": "danger-glow",
+        "value": "inset 0 0 96px rgba(127, 29, 29, 0.28)",
+        "purpose": "Game board when run has failed or level is exploded."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-transition",
+        "value": "75ms ease-out",
+        "purpose": "Color state changes on cells, button border shifts. Fast and invisible."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "New Run, Start. The primary call to action. Full-width on mobile home screen.",
+      "html": "<button class=\"ds-btn-primary\">New run</button>",
+      "css": ".ds-btn-primary { display: block; width: 100%; background: #34d399; color: #000000; border: none; border-radius: 4px; padding: 12px 20px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: background 75ms ease-out; } .ds-btn-primary:hover { background: #6ee7b7; } .ds-btn-primary:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; }"
+    },
+    {
+      "name": "Resume Button",
+      "kind": "button",
+      "refersTo": "button-resume",
+      "description": "Resume Run. Ghost of the primary; used only when an active run exists.",
+      "html": "<button class=\"ds-btn-resume\">Resume run</button>",
+      "css": ".ds-btn-resume { display: block; width: 100%; background: transparent; color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.6); border-radius: 4px; padding: 12px 20px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: background 75ms ease-out, border-color 75ms ease-out; } .ds-btn-resume:hover { background: rgba(52, 211, 153, 0.10); } .ds-btn-resume:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Back, Settings, Restart. Navigation chrome. Recedes behind primary actions.",
+      "html": "<button class=\"ds-btn-ghost\">Back</button>",
+      "css": ".ds-btn-ghost { display: inline-block; background: transparent; color: #a1a1aa; border: 1px solid #27272a; border-radius: 4px; padding: 6px 12px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; transition: border-color 75ms ease-out, color 75ms ease-out; } .ds-btn-ghost:hover { border-color: #3f3f46; color: #f4f4f5; } .ds-btn-ghost:focus-visible { outline: 2px solid #34d399; outline-offset: 2px; }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Reset all data. Full-width, isolated at the bottom of Settings.",
+      "html": "<button class=\"ds-btn-destructive\">Reset all data</button>",
+      "css": ".ds-btn-destructive { display: block; width: 100%; background: transparent; color: #f87171; border: 1px solid rgba(127, 29, 29, 0.6); border-radius: 4px; padding: 10px 20px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: background 75ms ease-out; } .ds-btn-destructive:hover { background: rgba(69, 10, 10, 0.30); } .ds-btn-destructive:focus-visible { outline: 2px solid #f87171; outline-offset: 2px; }"
+    },
+    {
+      "name": "Setting Toggle",
+      "kind": "input",
+      "refersTo": "setting-toggle",
+      "description": "Labeled toggle row with native checkbox. Used in the Settings screen.",
+      "html": "<label class=\"ds-setting-toggle\"><span class=\"ds-setting-toggle__text\"><span class=\"ds-setting-toggle__label\">Haptics</span><span class=\"ds-setting-toggle__desc\">Vibrate on proximity</span></span><input type=\"checkbox\" class=\"ds-setting-toggle__check\" /></label>",
+      "css": ".ds-setting-toggle { display: flex; align-items: center; justify-content: space-between; background: rgba(24, 24, 27, 0.4); border: 1px solid #27272a; border-radius: 4px; padding: 12px 16px; cursor: pointer; } .ds-setting-toggle__text { display: flex; flex-direction: column; gap: 2px; } .ds-setting-toggle__label { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; color: #f4f4f5; } .ds-setting-toggle__desc { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.75rem; color: #71717a; } .ds-setting-toggle__check { width: 16px; height: 16px; accent-color: #34d399; cursor: pointer; flex-shrink: 0; }"
+    },
+    {
+      "name": "Stat Display Row",
+      "kind": "custom",
+      "refersTo": "stat-display",
+      "description": "3-cell readout strip. Shown only when an active run exists. Not shown when there is no run.",
+      "html": "<div class=\"ds-stat-row\"><div class=\"ds-stat-cell ds-stat-cell--active\"><span class=\"ds-stat-cell__num\">3</span><span class=\"ds-stat-cell__label\">Level</span></div><div class=\"ds-stat-cell\"><span class=\"ds-stat-cell__num\">7</span><span class=\"ds-stat-cell__label\">Best</span></div><div class=\"ds-stat-cell\"><span class=\"ds-stat-cell__num\">2</span><span class=\"ds-stat-cell__label\">Explosions</span></div></div>",
+      "css": ".ds-stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; } .ds-stat-cell { display: flex; flex-direction: column; align-items: center; background: rgba(24, 24, 27, 0.6); border: 1px solid #27272a; border-radius: 4px; padding: 12px 8px; text-align: center; } .ds-stat-cell__num { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 1.5rem; font-weight: 700; color: #f4f4f5; font-variant-numeric: tabular-nums; } .ds-stat-cell--active .ds-stat-cell__num { color: #6ee7b7; } .ds-stat-cell__label { margin-top: 4px; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.625rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: #71717a; }"
+    },
+    {
+      "name": "Game Header",
+      "kind": "nav",
+      "refersTo": "button-ghost",
+      "description": "Slim border-bottom bar with back button, centered readout, and restart button.",
+      "html": "<header class=\"ds-game-header\"><button class=\"ds-btn-ghost\">Back</button><div class=\"ds-game-header__info\"><span class=\"ds-game-header__level\">Lv 3</span><span class=\"ds-game-header__marks\">2/6 marked</span></div><button class=\"ds-btn-ghost\">Restart</button></header>",
+      "css": ".ds-game-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #090909; border-bottom: 1px solid rgba(39, 39, 42, 0.7); padding: 12px 16px; } .ds-game-header__info { display: flex; align-items: center; gap: 12px; } .ds-game-header__level { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; font-weight: 600; color: #6ee7b7; font-variant-numeric: tabular-nums; } .ds-game-header__marks { font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 0.875rem; color: #71717a; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Dead of Night",
+    "overview": "BlindSweeper is played in effective darkness. The board is pure black during play; you cannot see what you are looking for. Every surface, every label, every button should feel like it belongs to that darkness rather than sitting on top of it. The UI is not a frame around the game; it is the game's outermost layer.\n\nThe visual approach is immersive restraint. Surfaces grade from void (pure black, the board) to near-void (depth-0, depth-1) to barely raised (surface-raised). The single accent color, Cleared Signal, is reserved for exactly what the name implies: states and actions the player knows are safe. Everything else is graded zinc and near-black.\n\nThis system explicitly refuses the conventions of polished SaaS dashboards and casual mobile games. The design should feel like holding something heavy in a dark room. Calm, precise, slightly tense.",
+    "keyCharacteristics": [
+      "Four-grade depth stack: board void (#000) > page void (#050505) > header dark (#090909) > raised surface (#18181b)",
+      "One accent color (Cleared Signal, emerald) used at under 10% surface coverage",
+      "Type is functional, never decorative: labels are facts",
+      "Motion is state-only: transitions respond to interaction, never perform on load",
+      "The board dominates the game screen; all chrome exists to orient, not to compete"
+    ],
+    "rules": [
+      { "name": "The One Signal Rule", "body": "Cleared Signal (#34d399) is used only for confirmed-safe states: active run, primary CTA, marked cells, the primary action button. Forbidden as decorative color. Its rarity is its meaning.", "section": "colors" },
+      { "name": "The Board Void Rule", "body": "#000000 belongs to the game board. Page surfaces use #050505. The board must read deeper than everything around it.", "section": "colors" },
+      { "name": "The Flat-By-Default Rule", "body": "If a UI element appears to float, cast a shadow, or sit above its surface, it is wrong. Separation is achieved by background value. Shadows are game feedback, not interface decoration.", "section": "elevation" },
+      { "name": "The Uppercase Budget Rule", "body": "Uppercase + wide tracking (letter-spacing >= 0.08em) is reserved for navigation chrome and game-state labels. Maximum two uppercase label elements per screen.", "section": "typography" },
+      { "name": "The No-Blank-Stats Rule", "body": "The stat row is hidden when there is no run. Empty metric tiles with dashes are a SaaS pattern. Prohibited.", "section": "components" }
+    ],
+    "dos": [
+      "Do use #050505 for page backgrounds and #000000 only for the game board.",
+      "Do use Cleared Signal (#34d399) exclusively for confirmed-safe and active states.",
+      "Do use Ghost buttons for all navigation chrome. They should recede behind primary actions.",
+      "Do hide the stat display entirely when there is no run.",
+      "Do keep all buttons at 4px radius.",
+      "Do use uppercase + wide tracking only for navigation labels and game-state readouts.",
+      "Do suppress all transitions when prefers-reduced-motion: reduce is set."
+    ],
+    "donts": [
+      "Don't use card grids, sidebar navigation, metric tiles with gradient accents, or SaaS dashboard patterns.",
+      "Don't use bouncy animations, entrance choreography, star rewards, or casual mobile game conventions.",
+      "Don't use neon-on-black, purple-to-cyan gradients, or RGB gaming aesthetics.",
+      "Don't use true black (#000000) on page surfaces outside the game board.",
+      "Don't add shadows to UI chrome elements. The Flat-By-Default Rule is absolute.",
+      "Don't use Cleared Signal as a decorative accent or hover indicator on neutral elements.",
+      "Don't show dashes or zeros in the stat display when there is no active run.",
+      "Don't soften the design with large border radii, warm neutrals, or playful copy."
+    ]
+  }
+}

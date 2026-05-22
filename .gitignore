@@ -8,34 +8,17 @@ previous-instructions/
 
 # Dependencies
 node_modules/
-backend/node_modules/
 frontend/node_modules/
-packages/shared/node_modules/
 
 # Build output
-backend/dist/
 frontend/dist/
-packages/shared/dist/
 *.tsbuildinfo
-
-# SQLite/data
-backend/*.sqlite
-backend/*.sqlite.temp
-backend/data/
 
 # Test and browser output
 frontend/playwright-report/
 frontend/test-results/
 frontend/tests/__snapshots__/
 coverage/
-
-# Terraform - sensitive values and state never go in git
-terraform/terraform.tfvars
-terraform/.terraform/
-terraform/*.tfstate
-terraform/*.tfstate.backup
-terraform/crash.log
-terraform/.terraform.lock.hcl
 
 # Agent/local metadata
 .claude_session

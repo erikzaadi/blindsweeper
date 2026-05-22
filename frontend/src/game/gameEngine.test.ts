@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { LevelState, MinefieldConfig } from "./types.js";
+import type { LevelState, MinefieldConfig } from "./types";
 import {
   buildMinefieldConfig,
   computeProximity,
@@ -8,7 +8,7 @@ import {
   pointToCell,
   resolveDragCollision,
   resolveMark,
-} from "./gameEngine.js";
+} from "./gameEngine";
 
 const config: MinefieldConfig = {
   rows: 4,
@@ -38,13 +38,13 @@ const level = (overrides: Partial<LevelState> = {}): LevelState => ({
 
 describe("buildMinefieldConfig", () => {
   it("increases mine count before board size", () => {
-    expect(buildMinefieldConfig(1, "seed")).toMatchObject({ rows: 6, cols: 6, mineCount: 3 });
-    expect(buildMinefieldConfig(2, "seed")).toMatchObject({ rows: 6, cols: 6, mineCount: 4 });
-    expect(buildMinefieldConfig(5, "seed")).toMatchObject({ rows: 6, cols: 6, mineCount: 7 });
+    expect(buildMinefieldConfig(1, "seed")).toMatchObject({ rows: 10, cols: 10, mineCount: 6 });
+    expect(buildMinefieldConfig(2, "seed")).toMatchObject({ rows: 10, cols: 10, mineCount: 7 });
+    expect(buildMinefieldConfig(5, "seed")).toMatchObject({ rows: 10, cols: 10, mineCount: 10 });
   });
 
   it("increases board size after the density cap", () => {
-    expect(buildMinefieldConfig(6, "seed")).toMatchObject({ rows: 8, cols: 8, mineCount: 8 });
+    expect(buildMinefieldConfig(12, "seed")).toMatchObject({ rows: 12, cols: 12, mineCount: 17 });
   });
 });
 
@@ -116,27 +116,39 @@ describe("resolveMark", () => {
 
     expect(result.outcome).toBe("marked");
     expect(containsCell(result.level.markedCells, { row: 1, col: 1 })).toBe(true);
+    expect(result.level.markHints?.[0]?.intensity).toBe(1);
     expect(result.level.status).toBe("active");
   });
 
   it("unmarks an already marked mine", () => {
     const result = resolveMark(
-      level({ markedCells: [{ row: 1, col: 1 }] }),
+      level({
+        markedCells: [{ row: 1, col: 1 }],
+        markHints: [{
+          cell: { row: 1, col: 1 },
+          nearestMine: { row: 1, col: 1 },
+          distanceCells: 0,
+          intensity: 1,
+        }],
+      }),
       { row: 1, col: 1 },
       "2026-05-22T00:00:01.000Z",
     );
 
     expect(result.outcome).toBe("unmarked");
     expect(result.level.markedCells).toEqual([]);
+    expect(result.level.markHints).toEqual([]);
     expect(result.level.status).toBe("active");
   });
 
-  it("explodes on an incorrect mark", () => {
+  it("marks a safe cell with a proximity hint", () => {
     const result = resolveMark(level(), { row: 0, col: 0 }, "2026-05-22T00:00:01.000Z");
 
-    expect(result.outcome).toBe("exploded");
-    expect(result.level.status).toBe("exploded");
-    expect(result.level.explosionCell).toEqual({ row: 0, col: 0 });
+    expect(result.outcome).toBe("marked");
+    expect(result.level.status).toBe("active");
+    expect(result.level.markedCells).toContainEqual({ row: 0, col: 0 });
+    expect(result.level.markHints?.[0]?.cell).toEqual({ row: 0, col: 0 });
+    expect(result.level.markHints?.[0]?.intensity).toBeGreaterThan(0);
   });
 
   it("completes when all mines are marked", () => {

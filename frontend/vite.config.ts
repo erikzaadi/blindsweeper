@@ -6,7 +6,6 @@ const DEPLOY_BASE = process.env.VITE_BASE_PATH ?? "/";
 
 export default defineConfig(({ command }) => {
   const base = command === "serve" ? "/" : DEPLOY_BASE;
-  const apiProxyTarget = process.env.VITE_API_PROXY_TARGET ?? "http://localhost:3001";
 
   return {
     base,
@@ -14,14 +13,5 @@ export default defineConfig(({ command }) => {
       react(),
       tailwindcss(),
     ],
-    server: {
-      proxy: {
-        [`${base}api`]: {
-          target: apiProxyTarget,
-          changeOrigin: true,
-          rewrite: (path) => path.slice(`${base}api`.length),
-        },
-      },
-    },
   };
 });

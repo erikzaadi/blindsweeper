@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Bomb">
+  <defs>
+    <radialGradient id="shell" cx="38%" cy="30%" r="72%">
+      <stop offset="0" stop-color="#52525b"/>
+      <stop offset="0.48" stop-color="#18181b"/>
+      <stop offset="1" stop-color="#030712"/>
+    </radialGradient>
+    <linearGradient id="spark" x1="82" x2="112" y1="17" y2="3">
+      <stop offset="0" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#fef3c7"/>
+    </linearGradient>
+  </defs>
+  <circle cx="60" cy="72" r="39" fill="url(#shell)" stroke="#71717a" stroke-width="4"/>
+  <path fill="#27272a" stroke="#a1a1aa" stroke-linecap="round" stroke-width="7" d="M86 38c8-12 17-18 28-22"/>
+  <path fill="none" stroke="url(#spark)" stroke-linecap="round" stroke-width="6" d="m105 10 8-6m-3 17 12 1m-23-7-4-10"/>
+  <circle cx="47" cy="58" r="9" fill="#f4f4f5" opacity=".18"/>
+</svg>

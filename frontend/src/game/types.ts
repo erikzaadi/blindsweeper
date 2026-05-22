@@ -1,9 +1,3 @@
-export type HealthResponse = {
-  ok: true;
-  app: "blindsweeper";
-  version: string;
-};
-
 export type Id = string;
 
 export type IsoTimestamp = string;
@@ -28,8 +22,6 @@ export type Profile = {
   displayName: string;
   createdAt: IsoTimestamp;
   updatedAt: IsoTimestamp;
-  externalProvider?: "google";
-  externalSubject?: string;
 };
 
 export type MinefieldConfig = {
@@ -51,11 +43,19 @@ export type LevelState = {
   config: MinefieldConfig;
   mines: CellCoord[];
   markedCells: CellCoord[];
+  markHints?: MarkHint[];
   status: LevelStatus;
   explosionCell?: CellCoord;
   createdAt: IsoTimestamp;
   updatedAt: IsoTimestamp;
   completedAt?: IsoTimestamp;
+};
+
+export type MarkHint = {
+  cell: CellCoord;
+  nearestMine?: CellCoord;
+  distanceCells: number;
+  intensity: number;
 };
 
 export type GameRunStatus = "active" | "failed" | "completed";
@@ -76,15 +76,6 @@ export type MoveEvent = {
   cell: CellCoord;
   proximity: ProximityResult;
   createdAt: IsoTimestamp;
-};
-
-export type GameEventType = "scan_summary" | "pause" | "resume" | "debug";
-
-export type GameEvent = {
-  type: GameEventType;
-  levelId: Id;
-  createdAt: IsoTimestamp;
-  payload?: Record<string, unknown>;
 };
 
 export type ProximityResult = {
@@ -114,4 +105,20 @@ export type PlayerStats = {
   highestLevelCompleted: number;
   currentStreak: number;
   bestStreak: number;
+};
+
+export type GameSettings = {
+  hapticsEnabled: boolean;
+  audioEnabled: boolean;
+  visualFallbackEnabled: boolean;
+  debugReveal: boolean;
+};
+
+export type PersistedGameState = {
+  schemaVersion: 1;
+  profiles: Profile[];
+  runs: GameRun[];
+  levels: LevelState[];
+  selectedProfileId?: Id;
+  settings: GameSettings;
 };

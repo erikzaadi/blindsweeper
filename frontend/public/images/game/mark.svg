@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Marked cell">
+  <path fill="#064e3b" stroke="#34d399" stroke-linejoin="round" stroke-width="8" d="M29 111V22l69 17-69 18"/>
+  <path fill="#34d399" d="M38 34v15l38-9-38-6Z"/>
+  <path stroke="#a7f3d0" stroke-linecap="round" stroke-width="9" d="M29 20v91"/>
+  <circle cx="29" cy="111" r="9" fill="#10b981"/>
+</svg>

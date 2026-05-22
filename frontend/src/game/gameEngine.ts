@@ -1,4 +1,13 @@
-import type { BoardPoint, BoardSize, CellCoord, LevelState, MarkResult, MinefieldConfig, ProximityResult } from "./types.js";
+import type {
+  BoardPoint,
+  BoardSize,
+  CellCoord,
+  LevelState,
+  MarkHint,
+  MarkResult,
+  MinefieldConfig,
+  ProximityResult,
+} from "./types";
 
 export type DifficultyCurve = {
   baseRows: number;
@@ -12,14 +21,14 @@ export type DifficultyCurve = {
 };
 
 export const DEFAULT_DIFFICULTY_CURVE: DifficultyCurve = {
-  baseRows: 6,
-  baseCols: 6,
-  baseMineCount: 3,
+  baseRows: 10,
+  baseCols: 10,
+  baseMineCount: 6,
   mineIncrement: 1,
-  maxDensity: 0.22,
+  maxDensity: 0.16,
   boardGrowthRows: 2,
   boardGrowthCols: 2,
-  proximityRadiusCells: 3,
+  proximityRadiusCells: 4,
 };
 
 export function buildMinefieldConfig(
@@ -163,19 +172,6 @@ export function resolveMark(level: LevelState, cell: CellCoord, now: string): Ma
     };
   }
 
-  if (!containsCell(level.mines, cell)) {
-    return {
-      outcome: "exploded",
-      cell,
-      level: {
-        ...level,
-        status: "exploded",
-        explosionCell: cell,
-        updatedAt: now,
-      },
-    };
-  }
-
   if (containsCell(level.markedCells, cell)) {
     return {
       outcome: "unmarked",
@@ -183,12 +179,16 @@ export function resolveMark(level: LevelState, cell: CellCoord, now: string): Ma
       level: {
         ...level,
         markedCells: level.markedCells.filter((markedCell) => !isSameCell(markedCell, cell)),
+        markHints: (level.markHints ?? []).filter((markHint) => !isSameCell(markHint.cell, cell)),
         updatedAt: now,
       },
     };
   }
 
   const markedCells = [...level.markedCells, cell].sort(compareCells);
+  const markHints = [...(level.markHints ?? []), buildMarkHint(cell, level.mines, level.config)].sort((a, b) => (
+    compareCells(a.cell, b.cell)
+  ));
   const completed = areAllMinesMarked(level.mines, markedCells);
 
   return {
@@ -197,10 +197,41 @@ export function resolveMark(level: LevelState, cell: CellCoord, now: string): Ma
     level: {
       ...level,
       markedCells,
+      markHints,
       status: completed ? "completed" : "active",
       updatedAt: now,
       completedAt: completed ? now : undefined,
     },
+  };
+}
+
+export function buildMarkHint(cell: CellCoord, mines: CellCoord[], config: MinefieldConfig): MarkHint {
+  validateMinefieldConfig(config);
+
+  if (mines.length === 0) {
+    return {
+      cell,
+      distanceCells: Number.POSITIVE_INFINITY,
+      intensity: 0,
+    };
+  }
+
+  let nearestMine = mines[0];
+  let nearestDistance = distanceToMineCenter(cell.row + 0.5, cell.col + 0.5, nearestMine);
+
+  for (const mine of mines.slice(1)) {
+    const distance = distanceToMineCenter(cell.row + 0.5, cell.col + 0.5, mine);
+    if (distance < nearestDistance) {
+      nearestMine = mine;
+      nearestDistance = distance;
+    }
+  }
+
+  return {
+    cell,
+    nearestMine,
+    distanceCells: nearestDistance,
+    intensity: clamp(1 - nearestDistance / config.proximityRadiusCells, 0, 1),
   };
 }
 
