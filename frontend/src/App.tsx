@@ -167,9 +167,10 @@ function BlindSweeperApp() {
     if (celebratingLevel === null) {
       return;
     }
+    playSoundEffect("level-complete", state.settings.audioEnabled);
     const id = setTimeout(() => setCelebratingLevel(null), 2500);
     return () => clearTimeout(id);
-  }, [celebratingLevel]);
+  }, [celebratingLevel, state.settings.audioEnabled]);
 
   function handleStartRun() {
     const isActive = snapshot?.run.status === "active";
@@ -236,7 +237,8 @@ function BlindSweeperApp() {
             <GameHeader
               levelNumber={snapshot.currentLevel.levelNumber}
               mineCount={snapshot.currentLevel.config.mineCount}
-              markedCount={snapshot.currentLevel.markedCells.length}
+              markedCount={snapshot.currentLevel.markedCells.filter((cell) => containsCell(snapshot.currentLevel.mines, cell)).length}
+              wrongMarkCount={snapshot.currentLevel.markedCells.filter((cell) => !containsCell(snapshot.currentLevel.mines, cell)).length}
               runStatus={snapshot.run.status}
               proximityIntensity={state.settings.visualFallbackEnabled && snapshot.run.status === "active" ? proximityIntensity : null}
               onBack={handleCloseGame}
@@ -483,6 +485,12 @@ function SettingsScreen({
             onChange={(checked) => onChange({ ...settings, hapticsEnabled: checked })}
           />
           <SettingToggle
+            checked={settings.audioEnabled}
+            label="Audio"
+            description="Sound effects and proximity tones"
+            onChange={(checked) => onChange({ ...settings, audioEnabled: checked })}
+          />
+          <SettingToggle
             checked={settings.visualFallbackEnabled}
             label="Visual feedback"
             description="Color and meter while dragging"
@@ -541,6 +549,7 @@ function GameHeader({
   levelNumber,
   mineCount,
   markedCount,
+  wrongMarkCount,
   runStatus,
   proximityIntensity,
   onBack,
@@ -549,6 +558,7 @@ function GameHeader({
   levelNumber: number;
   mineCount: number;
   markedCount: number;
+  wrongMarkCount: number;
   runStatus: string;
   proximityIntensity: number | null;
   onBack: () => void;
@@ -572,7 +582,10 @@ function GameHeader({
         </span>
         {!failed && (
           <span className="text-zinc-500">
-            {markedCount}/{mineCount} marked
+            {markedCount}/{mineCount} mines
+            {wrongMarkCount > 0 && (
+              <span className="ml-1.5 text-red-500/70">+{wrongMarkCount}</span>
+            )}
           </span>
         )}
         {proximityIntensity !== null && (
@@ -665,6 +678,7 @@ function BoardShell({
     const duration = event.timeStamp - start.startedAt;
     const tapped = start.maxMovement <= TAP_MOVEMENT_THRESHOLD_PX && duration <= TAP_DURATION_THRESHOLD_MS;
     if (tapped) {
+      playSoundEffect(containsCell(level.markedCells, cell) ? "unmark" : "mark", settings.audioEnabled);
       onMarkCell(cell);
     }
   }
@@ -894,7 +908,7 @@ function runFeedback(
   }
   lastFeedbackAtRef.current = now;
 
-  if (settings.hapticsEnabled && "vibrate" in navigator) {
+  if (settings.hapticsEnabled && "vibrate" in navigator && navigator.userActivation?.hasBeenActive) {
     const duration = force ? 90 : Math.round(8 + intensity * 42);
     navigator.vibrate(duration);
   }
@@ -930,6 +944,52 @@ function playFeedbackTone(
   gain.connect(context.destination);
   oscillator.start(startAt);
   oscillator.stop(startAt + duration);
+}
+
+let sharedAudioContext: AudioContext | null = null;
+
+function getSharedAudioContext(): AudioContext | null {
+  const Ctor = window.AudioContext;
+  if (!Ctor) { return null; }
+  if (!sharedAudioContext) {
+    sharedAudioContext = new Ctor();
+  }
+  return sharedAudioContext;
+}
+
+function playNote(ctx: AudioContext, freq: number, type: OscillatorType, gainValue: number, startAt: number, duration: number): void {
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gainNode.gain.setValueAtTime(gainValue, startAt);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
+  osc.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  osc.start(startAt);
+  osc.stop(startAt + duration);
+}
+
+type SoundEffect = "mark" | "unmark" | "level-complete";
+
+function playSoundEffect(type: SoundEffect, audioEnabled: boolean): void {
+  if (!audioEnabled) { return; }
+  const ctx = getSharedAudioContext();
+  if (!ctx) { return; }
+  const now = ctx.currentTime;
+
+  if (type === "mark") {
+    playNote(ctx, 600, "sine", 0.07, now, 0.055);
+    playNote(ctx, 900, "sine", 0.07, now + 0.045, 0.07);
+  } else if (type === "unmark") {
+    playNote(ctx, 600, "sine", 0.06, now, 0.055);
+    playNote(ctx, 380, "sine", 0.06, now + 0.045, 0.07);
+  } else if (type === "level-complete") {
+    const notes = [261, 330, 392, 523];
+    notes.forEach((freq, i) => {
+      playNote(ctx, freq, "sine", i === 3 ? 0.1 : 0.07, now + i * 0.09, i === 3 ? 0.22 : 0.08);
+    });
+  }
 }
 
 function cellSlotStyle(cell: CellCoord, config: { cols: number; rows: number }): CSSProperties {
