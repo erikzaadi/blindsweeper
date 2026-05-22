@@ -304,10 +304,10 @@ function HomeScreen({
         <div className="w-full max-w-xs text-center">
           {isFailed ? (
             <>
-              <div className="relative mx-auto mb-4 h-48 w-48">
+              <div className="relative mx-auto mb-4 h-52 w-52">
                 <img
                   alt=""
-                  className="h-full w-full object-contain opacity-25"
+                  className="h-full w-full object-contain opacity-40 drop-shadow-[0_0_24px_rgba(220,60,30,0.4)]"
                   src={EXPLOSION_ASSET_URL}
                 />
               </div>
@@ -340,10 +340,10 @@ function HomeScreen({
             <>
               <img
                 alt="BlindSweeper"
-                className="mx-auto h-20 w-20"
+                className="mx-auto h-56 w-56 rounded-full brightness-125 drop-shadow-[0_0_40px_rgba(220,130,30,0.55)]"
                 src={assetUrl("images/app-icon.png")}
               />
-              <h1 className="mt-4 text-4xl font-bold tracking-tight text-white">
+              <h1 className="mt-2 text-4xl font-bold tracking-tight text-white">
                 Feel your way.
               </h1>
               <p className="mt-2 text-sm text-zinc-500">
@@ -672,8 +672,8 @@ function BoardShell({
     >
       <div
         className={[
-          "grid min-h-[520px] flex-1 touch-none select-none overflow-hidden rounded border bg-black",
-          active ? "cursor-crosshair border-zinc-900" : "cursor-default border-red-950",
+          "grid min-h-[520px] flex-1 touch-none select-none overflow-hidden rounded bg-black",
+          active ? "cursor-crosshair" : "cursor-default border border-red-950/60",
         ].join(" ")}
         role="application"
         aria-label="BlindSweeper minefield"
@@ -684,6 +684,9 @@ function BoardShell({
         style={{
           gridTemplateColumns: `repeat(${level.config.cols}, minmax(0, 1fr))`,
           gridTemplateRows: `repeat(${level.config.rows}, minmax(0, 1fr))`,
+          backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)`,
+          backgroundSize: `calc(100% / ${level.config.cols}) calc(100% / ${level.config.rows})`,
+          backgroundPosition: `calc(50% / ${level.config.cols}) calc(50% / ${level.config.rows})`,
           boxShadow: active
             ? `inset 0 0 ${Math.round(36 + proximityIntensity * 96)}px rgba(16, 185, 129, ${0.06 + proximityIntensity * 0.24})`
             : "inset 0 0 96px rgba(127, 29, 29, 0.28)",
@@ -695,15 +698,14 @@ function BoardShell({
           const exploded = level.explosionCell && isSameCell(level.explosionCell, cell);
           const revealedMine = settings.debugReveal && containsCell(level.mines, cell);
           const hovered = hoverCell && isSameCell(hoverCell, cell);
+          const confirmed = marked && markHint && formatMarkHint(markHint.intensity) === "9";
           return (
             <div
               aria-hidden="true"
               className={[
-                "relative min-h-0 border border-zinc-950 transition-colors duration-75",
-                marked ? "bg-emerald-950/70" : "bg-black",
-                revealedMine ? "bg-red-950" : "",
-                hovered && settings.visualFallbackEnabled && active ? "bg-zinc-900" : "",
-                exploded ? "bg-red-600" : "",
+                "relative flex min-h-0 items-center justify-center transition-all duration-75",
+                hovered && settings.visualFallbackEnabled && active ? "bg-white/[0.04]" : "",
+                exploded ? "bg-red-950/60 rounded-md" : "",
               ].join(" ")}
               key={`${cell.row}:${cell.col}`}
             >
@@ -724,17 +726,19 @@ function BoardShell({
                 />
               ) : null}
               {marked ? (
-                <img
-                  alt=""
-                  className="pointer-events-none absolute inset-1 h-[calc(100%-0.5rem)] w-[calc(100%-0.5rem)] object-contain"
-                  draggable="false"
-                  src={markHint && formatMarkHint(markHint.intensity) === "9" ? MARK_CONFIRMED_ASSET_URL : MARK_ASSET_URL}
-                />
-              ) : null}
-              {markHint ? (
-                <span className="relative z-10 flex h-full w-full items-end justify-end p-0.5 text-[10px] font-semibold leading-none text-emerald-100 sm:p-1 sm:text-xs">
-                  {formatMarkHint(markHint.intensity)}
-                </span>
+                <>
+                  <img
+                    alt=""
+                    className="pointer-events-none absolute inset-1 h-[calc(100%-0.5rem)] w-[calc(100%-0.5rem)] object-contain"
+                    draggable="false"
+                    src={confirmed ? MARK_CONFIRMED_ASSET_URL : MARK_ASSET_URL}
+                  />
+                  {markHint ? (
+                    <span className="relative z-10 flex h-full w-full items-end justify-end p-0.5 text-[10px] font-semibold leading-none text-emerald-100 sm:p-1 sm:text-xs">
+                      {formatMarkHint(markHint.intensity)}
+                    </span>
+                  ) : null}
+                </>
               ) : null}
             </div>
           );
