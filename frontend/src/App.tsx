@@ -1,5 +1,6 @@
 import {
   Component,
+  type CSSProperties,
   type ErrorInfo,
   type MutableRefObject,
   type PointerEvent,
@@ -49,6 +50,7 @@ const MARK_ASSET_URL = assetUrl("images/game/mark.png");
 const MARK_CONFIRMED_ASSET_URL = assetUrl("images/game/mark-confirmed.png");
 const BOMB_ASSET_URL = assetUrl("images/game/bomb.png");
 const EXPLOSION_ASSET_URL = assetUrl("images/game/explosion.png");
+const LEVEL_COMPLETE_ASSET_URL = assetUrl("images/game/level-complete.png");
 
 type AppRoute = "home" | "settings" | "game";
 
@@ -120,6 +122,9 @@ function BlindSweeperApp() {
     () => localStorage.getItem(GESTURE_HINT_KEY) === "1",
   );
   const [confirmingNewRun, setConfirmingNewRun] = useState(false);
+  const [proximityIntensity, setProximityIntensity] = useState(0);
+  const [celebratingLevel, setCelebratingLevel] = useState<number | null>(null);
+  const prevLevelNumberRef = useRef<number | null>(null);
 
   const snapshot = useMemo(() => getSelectedRunSnapshot(state), [state]);
   const stats = useMemo(() => getPlayerStats(state, DEFAULT_PROFILE_ID), [state]);
@@ -144,6 +149,27 @@ function BlindSweeperApp() {
     const id = setTimeout(() => setConfirmingNewRun(false), 3000);
     return () => clearTimeout(id);
   }, [confirmingNewRun]);
+
+  useEffect(() => {
+    if (!snapshot || snapshot.run.status !== "active") {
+      prevLevelNumberRef.current = null;
+      return;
+    }
+    const current = snapshot.currentLevel.levelNumber;
+    const prev = prevLevelNumberRef.current;
+    if (prev !== null && current > prev) {
+      setCelebratingLevel(prev);
+    }
+    prevLevelNumberRef.current = current;
+  }, [snapshot]);
+
+  useEffect(() => {
+    if (celebratingLevel === null) {
+      return;
+    }
+    const id = setTimeout(() => setCelebratingLevel(null), 2500);
+    return () => clearTimeout(id);
+  }, [celebratingLevel]);
 
   function handleStartRun() {
     const isActive = snapshot?.run.status === "active";
@@ -201,7 +227,10 @@ function BlindSweeperApp() {
 
   if (route === "game") {
     return (
-      <main className="flex min-h-dvh flex-col bg-black text-zinc-100">
+      <main className="relative flex min-h-dvh flex-col bg-black text-zinc-100">
+        {celebratingLevel !== null && (
+          <LevelCompleteOverlay levelNumber={celebratingLevel} />
+        )}
         {snapshot ? (
           <>
             <GameHeader
@@ -209,6 +238,7 @@ function BlindSweeperApp() {
               mineCount={snapshot.currentLevel.config.mineCount}
               markedCount={snapshot.currentLevel.markedCells.length}
               runStatus={snapshot.run.status}
+              proximityIntensity={state.settings.visualFallbackEnabled && snapshot.run.status === "active" ? proximityIntensity : null}
               onBack={handleCloseGame}
               onResetLevel={handleResetLevel}
             />
@@ -219,6 +249,7 @@ function BlindSweeperApp() {
               onDismissGestureHint={handleDismissGestureHint}
               onExplodeCell={handleExplodeCell}
               onMarkCell={handleMarkCell}
+              onProximityChange={setProximityIntensity}
             />
           </>
         ) : (
@@ -511,6 +542,7 @@ function GameHeader({
   mineCount,
   markedCount,
   runStatus,
+  proximityIntensity,
   onBack,
   onResetLevel,
 }: {
@@ -518,6 +550,7 @@ function GameHeader({
   mineCount: number;
   markedCount: number;
   runStatus: string;
+  proximityIntensity: number | null;
   onBack: () => void;
   onResetLevel: () => void;
 }) {
@@ -542,6 +575,9 @@ function GameHeader({
             {markedCount}/{mineCount} marked
           </span>
         )}
+        {proximityIntensity !== null && (
+          <ProximityMeter intensity={proximityIntensity} />
+        )}
       </div>
 
       <button
@@ -562,6 +598,7 @@ function BoardShell({
   onDismissGestureHint,
   onExplodeCell,
   onMarkCell,
+  onProximityChange,
 }: {
   settings: GameSettings;
   level: LevelState;
@@ -569,6 +606,7 @@ function BoardShell({
   onDismissGestureHint: () => void;
   onExplodeCell: (cell: CellCoord) => void;
   onMarkCell: (cell: CellCoord) => void;
+  onProximityChange: (intensity: number) => void;
 }) {
   const pointerStartRef = useRef<PointerStart | null>(null);
   const lastFeedbackAtRef = useRef(0);
@@ -576,16 +614,11 @@ function BoardShell({
   const [proximityIntensity, setProximityIntensity] = useState(0);
   const [hoverCell, setHoverCell] = useState<CellCoord | null>(null);
   const active = level.status === "active";
-  const cells = useMemo(() => {
-    const nextCells: CellCoord[] = [];
-    for (let row = 0; row < level.config.rows; row += 1) {
-      for (let col = 0; col < level.config.cols; col += 1) {
-        nextCells.push({ row, col });
-      }
-    }
 
-    return nextCells;
-  }, [level.config.cols, level.config.rows]);
+  function updateProximity(intensity: number) {
+    setProximityIntensity(intensity);
+    onProximityChange(intensity);
+  }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (showGestureHint) {
@@ -626,7 +659,7 @@ function BoardShell({
     const start = pointerStartRef.current;
     start.maxMovement = Math.max(start.maxMovement, distancePx(start.point, point));
     pointerStartRef.current = null;
-    setProximityIntensity(0);
+    updateProximity(0);
 
     const cell = eventCell(event, point, level);
     const duration = event.timeStamp - start.startedAt;
@@ -638,7 +671,7 @@ function BoardShell({
 
   function handlePointerCancel() {
     pointerStartRef.current = null;
-    setProximityIntensity(0);
+    updateProximity(0);
     setHoverCell(null);
   }
 
@@ -649,7 +682,7 @@ function BoardShell({
     if (allowCollision && collision.exploded && collision.cell) {
       pointerStartRef.current = null;
       setHoverCell(collision.cell);
-      setProximityIntensity(1);
+      updateProximity(1);
       runFeedback(1, settings, audioContextRef, lastFeedbackAtRef, true);
       onExplodeCell(collision.cell);
       return;
@@ -657,7 +690,7 @@ function BoardShell({
 
     const proximity = computeProximity(point, board, level.config, level.mines, level.markedCells);
     setHoverCell(cell);
-    setProximityIntensity(proximity.intensity);
+    updateProximity(proximity.intensity);
     runFeedback(proximity.intensity, settings, audioContextRef, lastFeedbackAtRef, false);
   }
 
@@ -672,7 +705,7 @@ function BoardShell({
     >
       <div
         className={[
-          "grid min-h-[520px] flex-1 touch-none select-none overflow-hidden rounded bg-black",
+          "relative min-h-[520px] flex-1 touch-none select-none overflow-hidden rounded bg-black",
           active ? "cursor-crosshair" : "cursor-default border border-red-950/60",
         ].join(" ")}
         role="application"
@@ -682,8 +715,6 @@ function BoardShell({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         style={{
-          gridTemplateColumns: `repeat(${level.config.cols}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${level.config.rows}, minmax(0, 1fr))`,
           backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)`,
           backgroundSize: `calc(100% / ${level.config.cols}) calc(100% / ${level.config.rows})`,
           backgroundPosition: `calc(50% / ${level.config.cols}) calc(50% / ${level.config.rows})`,
@@ -692,61 +723,75 @@ function BoardShell({
             : "inset 0 0 96px rgba(127, 29, 29, 0.28)",
         }}
       >
-        {cells.map((cell) => {
-          const marked = containsCell(level.markedCells, cell);
-          const markHint = marked ? findMarkHint(level, cell) : null;
-          const exploded = level.explosionCell && isSameCell(level.explosionCell, cell);
-          const revealedMine = settings.debugReveal && containsCell(level.mines, cell);
-          const hovered = hoverCell && isSameCell(hoverCell, cell);
-          const confirmed = marked && markHint && formatMarkHint(markHint.intensity) === "9";
+        {hoverCell && settings.visualFallbackEnabled && active && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute flex items-center justify-center transition-all duration-75"
+            style={cellSlotStyle(hoverCell, level.config)}
+          >
+            <div className="aspect-square w-full max-h-full rounded-full bg-white/[0.06]" />
+          </div>
+        )}
+        {level.explosionCell && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute flex items-center justify-center"
+            style={cellSlotStyle(level.explosionCell, level.config)}
+          >
+            <div className="relative flex aspect-square w-full max-h-full items-center justify-center">
+              <div className="absolute -inset-[20%] rounded-full bg-red-950/60" />
+              <img
+                alt=""
+                className="relative z-10 h-full w-full object-contain"
+                draggable="false"
+                src={EXPLOSION_ASSET_URL}
+              />
+            </div>
+          </div>
+        )}
+        {settings.debugReveal && level.mines
+          .filter((cell) => !containsCell(level.markedCells, cell))
+          .map((cell) => (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute"
+              key={`mine:${cell.row}:${cell.col}`}
+              style={cellSlotStyle(cell, level.config)}
+            >
+              <img
+                alt=""
+                className="absolute inset-[2%] h-[96%] w-[96%] object-contain opacity-80"
+                draggable="false"
+                src={BOMB_ASSET_URL}
+              />
+            </div>
+          ))
+        }
+        {level.markedCells.map((cell) => {
+          const markHint = findMarkHint(level, cell);
+          const confirmed = markHint && formatMarkHint(markHint.intensity) === "9";
           return (
             <div
               aria-hidden="true"
-              className={[
-                "relative flex min-h-0 items-center justify-center transition-all duration-75",
-                hovered && settings.visualFallbackEnabled && active ? "bg-white/[0.04]" : "",
-                exploded ? "bg-red-950/60 rounded-md" : "",
-              ].join(" ")}
-              key={`${cell.row}:${cell.col}`}
+              className="pointer-events-none absolute"
+              key={`mark:${cell.row}:${cell.col}`}
+              style={cellSlotStyle(cell, level.config)}
             >
-              {revealedMine && !marked ? (
-                <img
-                  alt=""
-                  className="pointer-events-none absolute inset-1 h-[calc(100%-0.5rem)] w-[calc(100%-0.5rem)] object-contain opacity-80"
-                  draggable="false"
-                  src={BOMB_ASSET_URL}
-                />
-              ) : null}
-              {exploded ? (
-                <img
-                  alt=""
-                  className="pointer-events-none absolute inset-0 h-full w-full object-contain"
-                  draggable="false"
-                  src={EXPLOSION_ASSET_URL}
-                />
-              ) : null}
-              {marked ? (
-                <>
-                  <img
-                    alt=""
-                    className="pointer-events-none absolute inset-1 h-[calc(100%-0.5rem)] w-[calc(100%-0.5rem)] object-contain"
-                    draggable="false"
-                    src={confirmed ? MARK_CONFIRMED_ASSET_URL : MARK_ASSET_URL}
-                  />
-                  {markHint ? (
-                    <span className="relative z-10 flex h-full w-full items-end justify-end p-0.5 text-[10px] font-semibold leading-none text-emerald-100 sm:p-1 sm:text-xs">
-                      {formatMarkHint(markHint.intensity)}
-                    </span>
-                  ) : null}
-                </>
+              <img
+                alt=""
+                className="absolute inset-[2%] h-[96%] w-[96%] object-contain"
+                draggable="false"
+                src={confirmed ? MARK_CONFIRMED_ASSET_URL : MARK_ASSET_URL}
+              />
+              {markHint ? (
+                <span className="absolute bottom-0.5 right-0.5 z-10 text-[10px] font-semibold leading-none text-emerald-100 sm:text-xs">
+                  {formatMarkHint(markHint.intensity)}
+                </span>
               ) : null}
             </div>
           );
         })}
       </div>
-      {settings.visualFallbackEnabled && active ? (
-        <ProximityMeter intensity={proximityIntensity} />
-      ) : null}
       {showGestureHint && active ? (
         <GestureHint onDismiss={onDismissGestureHint} />
       ) : null}
@@ -760,18 +805,34 @@ function ProximityMeter({ intensity }: { intensity: number }) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute bottom-6 left-1/2 flex -translate-x-1/2 items-end gap-1 rounded border border-zinc-800 bg-black/80 px-2 py-2"
+      className="pointer-events-none flex items-end gap-0.5"
     >
       {[1, 2, 3, 4, 5].map((bar) => (
         <span
           className={[
-            "block w-2 rounded-sm transition-colors duration-75",
-            bar <= activeBars ? "bg-emerald-300" : "bg-zinc-800",
+            "block w-1.5 rounded-sm transition-colors duration-75",
+            bar <= activeBars ? "bg-emerald-300" : "bg-zinc-700",
           ].join(" ")}
           key={bar}
-          style={{ height: `${8 + bar * 4}px` }}
+          style={{ height: `${4 + bar * 3}px` }}
         />
       ))}
+    </div>
+  );
+}
+
+function LevelCompleteOverlay({ levelNumber }: { levelNumber: number }) {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/70">
+      <img
+        alt=""
+        className="h-52 w-52 object-contain drop-shadow-[0_0_48px_rgba(52,211,153,0.6)]"
+        src={LEVEL_COMPLETE_ASSET_URL}
+      />
+      <div className="text-center">
+        <p className="text-6xl font-bold tabular-nums text-emerald-300">{levelNumber}</p>
+        <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Cleared</p>
+      </div>
     </div>
   );
 }
@@ -869,6 +930,15 @@ function playFeedbackTone(
   gain.connect(context.destination);
   oscillator.start(startAt);
   oscillator.stop(startAt + duration);
+}
+
+function cellSlotStyle(cell: CellCoord, config: { cols: number; rows: number }): CSSProperties {
+  return {
+    left: `calc(${cell.col} / ${config.cols} * 100%)`,
+    top: `calc(${cell.row} / ${config.rows} * 100%)`,
+    width: `calc(100% / ${config.cols})`,
+    height: `calc(100% / ${config.rows})`,
+  };
 }
 
 function isSameCell(a: CellCoord, b: CellCoord): boolean {

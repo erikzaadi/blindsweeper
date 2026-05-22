@@ -46,6 +46,12 @@ const ASSETS = [
     prompt: "A centered stylized mine marker flag game token for BlindSweeper, emerald green flag on a short pin, tactile and crisp, plain black background, polished mobile game asset, no text.",
   },
   {
+    filename: "images/game/level-complete.png",
+    size: "1024x1024",
+    purpose: "Level complete celebration asset",
+    prompt: "A centered stylized level-cleared celebration token for a dark mobile game: glowing emerald-green concentric ripple rings expanding outward from a central point, like sonar or a safe zone revealed, deep black background, crisp teal-green radiant glow, triumphant and calm mood, polished mobile game asset, no text.",
+  },
+  {
     filename: "images/game/mark-confirmed.png",
     size: "1024x1024",
     purpose: "Confirmed mine cell asset (mark with maximum proximity signal)",
