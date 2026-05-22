@@ -104,6 +104,20 @@ jobs:
             --distribution-id "${{ secrets.CF_DIST_ID }}" \
             --paths "/*"
 
+      # ── Update deployed SHA ─────────────────────────────────────────────────
+      # Update before smoke test so change detection is correct on next run
+      # even if smoke test has transient DNS/propagation issues.
+
+      - name: Update deployed SHA in SSM
+        if: steps.changes.outputs.deploy_frontend == 'true'
+        run: |
+          aws ssm put-parameter \
+            --name "$SSM_PREFIX/LAST_DEPLOYED_FRONTEND_SHA" \
+            --value "$GITHUB_SHA" \
+            --type String \
+            --overwrite
+          echo "Updated frontend SHA: $GITHUB_SHA"
+
       # ── Smoke test ──────────────────────────────────────────────────────────
 
       - name: Smoke test
@@ -114,13 +128,18 @@ jobs:
         run: |
           check() {
             local label="$1" url="$2" expected="${3:-200}"
-            status=$(curl -o /dev/null -s -w "%{http_code}" --max-time 15 "$url")
-            if [[ "$status" == "$expected" ]]; then
-              echo "PASS $label - HTTP $status"
-            else
-              echo "FAIL $label - expected $expected, got $status"
-              exit 1
-            fi
+            local status attempts=10 delay=6
+            for ((i=1; i<=attempts; i++)); do
+              status=$(curl -o /dev/null -s -w "%{http_code}" --max-time 15 "$url" || echo "000")
+              if [[ "$status" == "$expected" ]]; then
+                echo "PASS $label - HTTP $status"
+                return 0
+              fi
+              echo "  attempt $i/$attempts: got $status, waiting ${delay}s..."
+              sleep $delay
+            done
+            echo "FAIL $label - expected $expected, got $status"
+            exit 1
           }
           check_version() {
             local label="$1" url="$2"
@@ -139,15 +158,3 @@ jobs:
           }
           check "Frontend root" "https://$FRONTEND_DOMAIN/"
           check_version "frontend" "https://$FRONTEND_DOMAIN/version.json"
-
-      # ── Update deployed SHA ─────────────────────────────────────────────────
-
-      - name: Update deployed SHA in SSM
-        if: steps.changes.outputs.deploy_frontend == 'true'
-        run: |
-          aws ssm put-parameter \
-            --name "$SSM_PREFIX/LAST_DEPLOYED_FRONTEND_SHA" \
-            --value "$GITHUB_SHA" \
-            --type String \
-            --overwrite
-          echo "Updated frontend SHA: $GITHUB_SHA"

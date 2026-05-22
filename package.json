@@ -12,11 +12,14 @@
     "ci:all": "npm ci --prefix frontend",
     "generate-static-assets": "node --env-file=./.env scripts/generateStaticAssets.mjs",
     "lint:frontend": "npm run lint --prefix frontend",
+    "lint:bash": "shellcheck -x --severity=warning scripts/*.sh",
+    "lint:workflows": "actionlint && yamllint .github/workflows/ && shellcheck -x --severity=warning scripts/*.sh",
     "test:frontend": "npm run test --prefix frontend",
     "test": "npm run test:frontend",
     "lint": "npm run lint:frontend",
     "tsc:frontend": "npm run tsc --prefix frontend",
     "tsc": "npm run tsc:frontend",
-    "verify": "npm run lint && npm run tsc && npm test"
+    "verify": "npm run lint && npm run tsc && npm test",
+    "bump-version": "bash scripts/bump-version.sh"
   }
 }

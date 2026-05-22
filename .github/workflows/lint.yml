@@ -1,0 +1,84 @@
+# Lint GitHub Actions workflows, YAML files, shell scripts, and frontend TypeScript.
+# actionlint validates workflow syntax and shell scripts in run: blocks.
+# yamllint checks general YAML formatting.
+# ESLint + tsc check frontend TypeScript.
+# Each job only runs when its relevant paths changed.
+
+name: Lint
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**'
+      - '*.yml'
+      - '*.yaml'
+      - 'frontend/**'
+      - 'scripts/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - '*.yml'
+      - '*.yaml'
+      - 'frontend/**'
+      - 'scripts/**'
+  workflow_dispatch:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+            workflows:
+              - '.github/workflows/**'
+              - '*.yml'
+              - '*.yaml'
+              - 'scripts/**'
+
+  lint-workflows:
+    needs: changes
+    if: needs.changes.outputs.workflows == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: shellcheck (scripts)
+        run: shellcheck -x --severity=warning scripts/*.sh
+
+      - name: actionlint
+        uses: rhysd/actionlint@v1.7.12
+
+      - name: yamllint
+        run: |
+          pip install --quiet yamllint
+          yamllint .github/workflows/
+
+  lint-frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Install deps
+        run: cd frontend && npm ci
+
+      - name: ESLint
+        run: cd frontend && npm run lint
+
+      - name: typecheck
+        run: cd frontend && npx tsc -b
