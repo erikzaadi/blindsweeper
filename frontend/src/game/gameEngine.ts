@@ -174,14 +174,9 @@ export function resolveMark(level: LevelState, cell: CellCoord, now: string): Ma
 
   if (containsCell(level.markedCells, cell)) {
     return {
-      outcome: "unmarked",
+      outcome: "ignored",
       cell,
-      level: {
-        ...level,
-        markedCells: level.markedCells.filter((markedCell) => !isSameCell(markedCell, cell)),
-        markHints: (level.markHints ?? []).filter((markHint) => !isSameCell(markHint.cell, cell)),
-        updatedAt: now,
-      },
+      level,
     };
   }
 

@@ -123,7 +123,7 @@ function BlindSweeperApp() {
   );
   const [confirmingNewRun, setConfirmingNewRun] = useState(false);
   const [proximityIntensity, setProximityIntensity] = useState(0);
-  const [celebratingLevel, setCelebratingLevel] = useState<number | null>(null);
+  const [celebratingLevel, setCelebratingLevel] = useState<{ levelNumber: number; score: number } | null>(null);
   const prevLevelNumberRef = useRef<number | null>(null);
 
   const snapshot = useMemo(() => getSelectedRunSnapshot(state), [state]);
@@ -158,16 +158,20 @@ function BlindSweeperApp() {
     const current = snapshot.currentLevel.levelNumber;
     const prev = prevLevelNumberRef.current;
     if (prev !== null && current > prev) {
-      setCelebratingLevel(prev);
+      const completedLevel = state.levels
+        .filter((l) => l.runId === snapshot.run.id && l.levelNumber === prev && l.status === "completed")
+        .at(-1);
+      const score = completedLevel ? computeLevelScore(completedLevel) : 100;
+      setCelebratingLevel({ levelNumber: prev, score });
     }
     prevLevelNumberRef.current = current;
-  }, [snapshot]);
+  }, [snapshot, state.levels]);
 
   useEffect(() => {
     if (celebratingLevel === null) {
       return;
     }
-    playSoundEffect("level-complete", state.settings.audioEnabled);
+    playSoundEffect(celebratingLevel.score === 100 ? "level-complete-perfect" : "level-complete", state.settings.audioEnabled);
     const id = setTimeout(() => setCelebratingLevel(null), 2500);
     return () => clearTimeout(id);
   }, [celebratingLevel, state.settings.audioEnabled]);
@@ -230,7 +234,7 @@ function BlindSweeperApp() {
     return (
       <main className="relative flex min-h-dvh flex-col bg-black text-zinc-100">
         {celebratingLevel !== null && (
-          <LevelCompleteOverlay levelNumber={celebratingLevel} />
+          <LevelCompleteOverlay levelNumber={celebratingLevel.levelNumber} score={celebratingLevel.score} />
         )}
         {snapshot ? (
           <>
@@ -677,8 +681,8 @@ function BoardShell({
     const cell = eventCell(event, point, level);
     const duration = event.timeStamp - start.startedAt;
     const tapped = start.maxMovement <= TAP_MOVEMENT_THRESHOLD_PX && duration <= TAP_DURATION_THRESHOLD_MS;
-    if (tapped) {
-      playSoundEffect(containsCell(level.markedCells, cell) ? "unmark" : "mark", settings.audioEnabled);
+    if (tapped && !containsCell(level.markedCells, cell)) {
+      playSoundEffect("mark", settings.audioEnabled);
       onMarkCell(cell);
     }
   }
@@ -733,8 +737,16 @@ function BoardShell({
           backgroundSize: `calc(100% / ${level.config.cols}) calc(100% / ${level.config.rows})`,
           backgroundPosition: `calc(50% / ${level.config.cols}) calc(50% / ${level.config.rows})`,
           boxShadow: active
-            ? `inset 0 0 ${Math.round(36 + proximityIntensity * 96)}px rgba(16, 185, 129, ${0.06 + proximityIntensity * 0.24})`
+            ? [
+              `inset 0 0 ${Math.round(20 + proximityIntensity * 160)}px rgba(16, 185, 129, ${(0.05 + proximityIntensity * 0.60).toFixed(2)})`,
+              `inset 0 0 ${Math.round(proximityIntensity * 40)}px rgba(52, 211, 153, ${(proximityIntensity * 0.45).toFixed(2)})`,
+              `0 0 ${Math.round(proximityIntensity * 28)}px rgba(16, 185, 129, ${(proximityIntensity * 0.55).toFixed(2)})`,
+            ].join(", ")
             : "inset 0 0 96px rgba(127, 29, 29, 0.28)",
+          outline: active && proximityIntensity > 0.05
+            ? `${Math.round(1 + proximityIntensity * 3)}px solid rgba(52, 211, 153, ${(proximityIntensity * 0.85).toFixed(2)})`
+            : undefined,
+          outlineOffset: "-1px",
         }}
       >
         {hoverCell && settings.visualFallbackEnabled && active && (
@@ -835,7 +847,8 @@ function ProximityMeter({ intensity }: { intensity: number }) {
   );
 }
 
-function LevelCompleteOverlay({ levelNumber }: { levelNumber: number }) {
+function LevelCompleteOverlay({ levelNumber, score }: { levelNumber: number; score: number }) {
+  const perfect = score === 100;
   return (
     <div className="pointer-events-none absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/70">
       <img
@@ -846,6 +859,12 @@ function LevelCompleteOverlay({ levelNumber }: { levelNumber: number }) {
       <div className="text-center">
         <p className="text-6xl font-bold tabular-nums text-emerald-300">{levelNumber}</p>
         <p className="mt-1 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-600">Cleared</p>
+        <p className={["mt-3 text-2xl font-bold tabular-nums", perfect ? "text-yellow-300" : "text-emerald-200"].join(" ")}>
+          {score}%
+        </p>
+        {perfect && (
+          <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.2em] text-yellow-500">Perfect</p>
+        )}
       </div>
     </div>
   );
@@ -908,9 +927,13 @@ function runFeedback(
   }
   lastFeedbackAtRef.current = now;
 
-  if (settings.hapticsEnabled && "vibrate" in navigator && navigator.userActivation?.hasBeenActive) {
-    const duration = force ? 90 : Math.round(8 + intensity * 42);
-    navigator.vibrate(duration);
+  if (settings.hapticsEnabled && "vibrate" in navigator) {
+    try {
+      const duration = force ? 90 : Math.round(8 + intensity * 42);
+      navigator.vibrate(duration);
+    } catch {
+      // vibrate blocked by browser policy
+    }
   }
 
   if (settings.audioEnabled) {
@@ -950,7 +973,9 @@ let sharedAudioContext: AudioContext | null = null;
 
 function getSharedAudioContext(): AudioContext | null {
   const Ctor = window.AudioContext;
-  if (!Ctor) { return null; }
+  if (!Ctor) {
+    return null; 
+  }
   if (!sharedAudioContext) {
     sharedAudioContext = new Ctor();
   }
@@ -970,26 +995,39 @@ function playNote(ctx: AudioContext, freq: number, type: OscillatorType, gainVal
   osc.stop(startAt + duration);
 }
 
-type SoundEffect = "mark" | "unmark" | "level-complete";
+type SoundEffect = "mark" | "level-complete" | "level-complete-perfect";
 
 function playSoundEffect(type: SoundEffect, audioEnabled: boolean): void {
-  if (!audioEnabled) { return; }
+  if (!audioEnabled) {
+    return; 
+  }
   const ctx = getSharedAudioContext();
-  if (!ctx) { return; }
+  if (!ctx) {
+    return; 
+  }
   const now = ctx.currentTime;
 
   if (type === "mark") {
     playNote(ctx, 600, "sine", 0.07, now, 0.055);
     playNote(ctx, 900, "sine", 0.07, now + 0.045, 0.07);
-  } else if (type === "unmark") {
-    playNote(ctx, 600, "sine", 0.06, now, 0.055);
-    playNote(ctx, 380, "sine", 0.06, now + 0.045, 0.07);
   } else if (type === "level-complete") {
     const notes = [261, 330, 392, 523];
     notes.forEach((freq, i) => {
       playNote(ctx, freq, "sine", i === 3 ? 0.1 : 0.07, now + i * 0.09, i === 3 ? 0.22 : 0.08);
     });
+  } else if (type === "level-complete-perfect") {
+    const notes = [261, 330, 392, 523, 659, 784];
+    notes.forEach((freq, i) => {
+      playNote(ctx, freq, "sine", i >= 4 ? 0.12 : 0.07, now + i * 0.08, i >= 4 ? 0.28 : 0.08);
+    });
   }
+}
+
+function computeLevelScore(level: LevelState): number {
+  if (level.markedCells.length === 0) {
+    return 0; 
+  }
+  return Math.round((level.config.mineCount / level.markedCells.length) * 100);
 }
 
 function cellSlotStyle(cell: CellCoord, config: { cols: number; rows: number }): CSSProperties {

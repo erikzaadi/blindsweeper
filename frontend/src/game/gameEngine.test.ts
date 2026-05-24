@@ -120,25 +120,20 @@ describe("resolveMark", () => {
     expect(result.level.status).toBe("active");
   });
 
-  it("unmarks an already marked mine", () => {
-    const result = resolveMark(
-      level({
-        markedCells: [{ row: 1, col: 1 }],
-        markHints: [{
-          cell: { row: 1, col: 1 },
-          nearestMine: { row: 1, col: 1 },
-          distanceCells: 0,
-          intensity: 1,
-        }],
-      }),
-      { row: 1, col: 1 },
-      "2026-05-22T00:00:01.000Z",
-    );
+  it("ignores an already marked cell", () => {
+    const alreadyMarked = level({
+      markedCells: [{ row: 1, col: 1 }],
+      markHints: [{
+        cell: { row: 1, col: 1 },
+        nearestMine: { row: 1, col: 1 },
+        distanceCells: 0,
+        intensity: 1,
+      }],
+    });
+    const result = resolveMark(alreadyMarked, { row: 1, col: 1 }, "2026-05-22T00:00:01.000Z");
 
-    expect(result.outcome).toBe("unmarked");
-    expect(result.level.markedCells).toEqual([]);
-    expect(result.level.markHints).toEqual([]);
-    expect(result.level.status).toBe("active");
+    expect(result.outcome).toBe("ignored");
+    expect(result.level).toBe(alreadyMarked);
   });
 
   it("marks a safe cell with a proximity hint", () => {

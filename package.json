@@ -18,6 +18,7 @@
     "test:e2e": "npm run test:e2e --prefix frontend -- --project=mobile-chrome",
     "test": "npm run test:frontend",
     "lint": "npm run lint:frontend",
+    "lint:fix": "npm run lint:frontend -- -- --fix",
     "tsc:frontend": "npm run tsc --prefix frontend",
     "tsc": "npm run tsc:frontend",
     "verify": "npm run lint && npm run tsc && npm test",

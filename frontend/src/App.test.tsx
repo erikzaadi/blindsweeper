@@ -107,7 +107,7 @@ describe("GameScreen", () => {
     seedActive();
     renderAt("/game");
     expect(screen.getByText(/lv 1/i)).toBeInTheDocument();
-    expect(screen.getByText("0/6 marked")).toBeInTheDocument();
+    expect(screen.getByText(/0\/6 mines/i)).toBeInTheDocument();
   });
 
   it("shows back and restart buttons", () => {
@@ -135,7 +135,7 @@ describe("explosion state", () => {
   it("hides mine count when run failed", () => {
     seedFailed();
     renderAt("/game");
-    expect(screen.queryByText(/marked/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\/6 mines/i)).not.toBeInTheDocument();
   });
 });
 
@@ -169,7 +169,7 @@ describe("board pointer events", () => {
     fireEvent.pointerDown(board, { clientX: 100, clientY: 100, pointerId: 1 });
     fireEvent.pointerUp(board, { clientX: 100, clientY: 100, pointerId: 1 });
 
-    expect(screen.getByText("1/6 marked")).toBeInTheDocument();
+    expect(document.querySelectorAll('img[src$="mark.png"]').length).toBe(1);
   });
 
   it("movement above 10px does not trigger mark", () => {
@@ -181,7 +181,7 @@ describe("board pointer events", () => {
     fireEvent.pointerMove(board, { clientX: 25, clientY: 0, pointerId: 1 });
     fireEvent.pointerUp(board, { clientX: 25, clientY: 0, pointerId: 1 });
 
-    expect(screen.getByText("0/6 marked")).toBeInTheDocument();
+    expect(screen.getByText(/0\/6 mines/i)).toBeInTheDocument();
   });
 
   it("pointercancel clears active gesture without marking", () => {
@@ -195,7 +195,7 @@ describe("board pointer events", () => {
     // pointerUp after cancel should not mark because ref was cleared
     fireEvent.pointerUp(board, { clientX: 100, clientY: 100, pointerId: 1 });
 
-    expect(screen.getByText("0/6 marked")).toBeInTheDocument();
+    expect(screen.getByText(/0\/6 mines/i)).toBeInTheDocument();
   });
 
   it("does not throw when navigator.vibrate is absent", () => {
@@ -225,7 +225,7 @@ describe("board pointer events", () => {
     }).not.toThrow();
   });
 
-  it("tapping already marked cell toggles it back to unmarked", () => {
+  it("tapping already marked cell does not unmark it", () => {
     seedActive();
     renderAt("/game");
     const board = mockBoard();
@@ -233,11 +233,11 @@ describe("board pointer events", () => {
     // first tap marks
     fireEvent.pointerDown(board, { clientX: 100, clientY: 100, pointerId: 1 });
     fireEvent.pointerUp(board, { clientX: 100, clientY: 100, pointerId: 1 });
-    expect(screen.getByText("1/6 marked")).toBeInTheDocument();
+    expect(document.querySelectorAll('img[src$="mark.png"]').length).toBe(1);
 
-    // second tap on same cell unmarks
+    // second tap on same cell is ignored - mark stays
     fireEvent.pointerDown(board, { clientX: 100, clientY: 100, pointerId: 1 });
     fireEvent.pointerUp(board, { clientX: 100, clientY: 100, pointerId: 1 });
-    expect(screen.getByText("0/6 marked")).toBeInTheDocument();
+    expect(document.querySelectorAll('img[src$="mark.png"]').length).toBe(1);
   });
 });
