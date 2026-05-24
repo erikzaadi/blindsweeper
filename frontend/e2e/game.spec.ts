@@ -33,7 +33,7 @@ test.describe("starting a run", () => {
   test("game header shows level 1 and mine count", async ({ page }) => {
     await page.getByRole("button", { name: /new run/i }).click();
     await expect(page.getByText(/lv 1/i)).toBeVisible();
-    await expect(page.getByText("0/6 marked")).toBeVisible();
+    await expect(page.getByText(/0\/6 mines/i)).toBeVisible();
   });
 
   test("board is visible and interactive", async ({ page }) => {
@@ -56,20 +56,20 @@ test.describe("board interaction", () => {
       position: { x: Math.floor(box!.width / 2), y: Math.floor(box!.height / 2) },
     });
 
-    await expect(page.getByText("1/6 marked")).toBeVisible();
+    await expect(board.locator("img[src*='mark']")).toHaveCount(1);
   });
 
-  test("tapping same cell twice toggles mark back to 0", async ({ page }) => {
+  test("tapping same cell twice does not unmark", async ({ page }) => {
     const board = page.getByRole("application", { name: /minefield/i });
     const box = await board.boundingBox();
     expect(box).not.toBeNull();
     const pos = { x: Math.floor(box!.width / 2), y: Math.floor(box!.height / 2) };
 
     await board.click({ position: pos });
-    await expect(page.getByText("1/6 marked")).toBeVisible();
+    await expect(board.locator("img[src*='mark']")).toHaveCount(1);
 
     await board.click({ position: pos });
-    await expect(page.getByText("0/6 marked")).toBeVisible();
+    await expect(board.locator("img[src*='mark']")).toHaveCount(1);
   });
 
   test("restart button resets marked count", async ({ page }) => {
@@ -80,10 +80,10 @@ test.describe("board interaction", () => {
     await board.click({
       position: { x: Math.floor(box!.width / 2), y: Math.floor(box!.height / 2) },
     });
-    await expect(page.getByText("1/6 marked")).toBeVisible();
+    await expect(board.locator("img[src*='mark']")).toHaveCount(1);
 
     await page.getByRole("button", { name: /restart/i }).click();
-    await expect(page.getByText("0/6 marked")).toBeVisible();
+    await expect(board.locator("img[src*='mark']")).toHaveCount(0);
   });
 
   test("back button returns to home with resume option", async ({ page }) => {
