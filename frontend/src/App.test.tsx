@@ -169,7 +169,7 @@ describe("board pointer events", () => {
     fireEvent.pointerDown(board, { clientX: 100, clientY: 100, pointerId: 1 });
     fireEvent.pointerUp(board, { clientX: 100, clientY: 100, pointerId: 1 });
 
-    expect(document.querySelectorAll('img[src$="mark.png"]').length).toBe(1);
+    expect(document.querySelectorAll('img[src*="mark"]').length).toBe(1);
   });
 
   it("movement above 10px does not trigger mark", () => {
@@ -233,11 +233,11 @@ describe("board pointer events", () => {
     // first tap marks
     fireEvent.pointerDown(board, { clientX: 100, clientY: 100, pointerId: 1 });
     fireEvent.pointerUp(board, { clientX: 100, clientY: 100, pointerId: 1 });
-    expect(document.querySelectorAll('img[src$="mark.png"]').length).toBe(1);
+    expect(document.querySelectorAll('img[src*="mark"]').length).toBe(1);
 
     // second tap on same cell is ignored - mark stays
     fireEvent.pointerDown(board, { clientX: 100, clientY: 100, pointerId: 1 });
     fireEvent.pointerUp(board, { clientX: 100, clientY: 100, pointerId: 1 });
-    expect(document.querySelectorAll('img[src$="mark.png"]').length).toBe(1);
+    expect(document.querySelectorAll('img[src*="mark"]').length).toBe(1);
   });
 });

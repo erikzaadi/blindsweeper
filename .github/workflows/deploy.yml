@@ -156,5 +156,8 @@ jobs:
             echo "FAIL $label version - expected $EXPECTED_VERSION, got $actual"
             exit 1
           }
-          check "Frontend root" "https://$FRONTEND_DOMAIN/"
-          check_version "frontend" "https://$FRONTEND_DOMAIN/version.json"
+          FRONTEND_HOST="${FRONTEND_DOMAIN#https://}"
+          FRONTEND_HOST="${FRONTEND_HOST#http://}"
+          FRONTEND_HOST="${FRONTEND_HOST%/}"
+          check "Frontend root" "https://$FRONTEND_HOST/"
+          check_version "frontend" "https://$FRONTEND_HOST/version.json"

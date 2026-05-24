@@ -2,6 +2,10 @@ output "frontend_url" {
   value = "https://${var.frontend_domain}"
 }
 
+output "frontend_domain" {
+  value = var.frontend_domain
+}
+
 # Used in GitHub Actions to invalidate CloudFront cache after deploy
 output "cloudfront_distribution_id" {
   value = module.frontend.cloudfront_distribution_id
