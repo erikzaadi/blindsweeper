@@ -14,7 +14,7 @@ const DEFAULT_PROFILE: Profile = {
 
 export const DEFAULT_SETTINGS: GameSettings = {
   hapticsEnabled: true,
-  audioEnabled: false,
+  audioEnabled: true,
   visualFallbackEnabled: true,
   debugReveal: false,
 };

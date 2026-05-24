@@ -500,12 +500,14 @@ function SettingsScreen({
             description="Color and meter while dragging"
             onChange={(checked) => onChange({ ...settings, visualFallbackEnabled: checked })}
           />
-          <SettingToggle
-            checked={settings.debugReveal}
-            label="Reveal mines"
-            description="Show mine positions (debug)"
-            onChange={(checked) => onChange({ ...settings, debugReveal: checked })}
-          />
+          {import.meta.env.DEV && (
+            <SettingToggle
+              checked={settings.debugReveal}
+              label="Reveal mines"
+              description="Show mine positions (debug)"
+              onChange={(checked) => onChange({ ...settings, debugReveal: checked })}
+            />
+          )}
         </div>
 
         <div className="mt-10 border-t border-zinc-800/70 pt-6">
