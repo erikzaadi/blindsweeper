@@ -23,7 +23,7 @@ export type DifficultyCurve = {
 export const DEFAULT_DIFFICULTY_CURVE: DifficultyCurve = {
   baseRows: 10,
   baseCols: 10,
-  baseMineCount: 6,
+  baseMineCount: 3,
   mineIncrement: 1,
   maxDensity: 0.16,
   boardGrowthRows: 2,

@@ -38,13 +38,13 @@ const level = (overrides: Partial<LevelState> = {}): LevelState => ({
 
 describe("buildMinefieldConfig", () => {
   it("increases mine count before board size", () => {
-    expect(buildMinefieldConfig(1, "seed")).toMatchObject({ rows: 10, cols: 10, mineCount: 6 });
-    expect(buildMinefieldConfig(2, "seed")).toMatchObject({ rows: 10, cols: 10, mineCount: 7 });
-    expect(buildMinefieldConfig(5, "seed")).toMatchObject({ rows: 10, cols: 10, mineCount: 10 });
+    expect(buildMinefieldConfig(1, "seed")).toMatchObject({ rows: 10, cols: 10, mineCount: 3 });
+    expect(buildMinefieldConfig(2, "seed")).toMatchObject({ rows: 10, cols: 10, mineCount: 4 });
+    expect(buildMinefieldConfig(5, "seed")).toMatchObject({ rows: 10, cols: 10, mineCount: 7 });
   });
 
   it("increases board size after the density cap", () => {
-    expect(buildMinefieldConfig(12, "seed")).toMatchObject({ rows: 12, cols: 12, mineCount: 17 });
+    expect(buildMinefieldConfig(15, "seed")).toMatchObject({ rows: 12, cols: 12, mineCount: 17 });
   });
 });
 

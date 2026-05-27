@@ -33,7 +33,7 @@ test.describe("starting a run", () => {
   test("game header shows level 1 and mine count", async ({ page }) => {
     await page.getByRole("button", { name: /new run/i }).click();
     await expect(page.getByText(/lv 1/i)).toBeVisible();
-    await expect(page.getByText(/0\/6 mines/i)).toBeVisible();
+    await expect(page.getByText(/0\/3 mines/i)).toBeVisible();
   });
 
   test("board is visible and interactive", async ({ page }) => {
