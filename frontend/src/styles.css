@@ -11,3 +11,18 @@ body {
   min-height: 100vh;
   background: #000;
 }
+
+@keyframes trail-fade-out {
+  0% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.25);
+  }
+}
+
+.animate-trail {
+  animation: trail-fade-out 0.8s forwards cubic-bezier(0.1, 0.8, 0.25, 1);
+}

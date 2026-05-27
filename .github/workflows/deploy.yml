@@ -161,3 +161,12 @@ jobs:
           FRONTEND_HOST="${FRONTEND_HOST%/}"
           check "Frontend root" "https://$FRONTEND_HOST/"
           check_version "frontend" "https://$FRONTEND_HOST/version.json"
+
+      - name: Notify Pushover
+        if: always()
+        uses: ./.github/actions/notify-pushover
+        with:
+          status: ${{ job.status }}
+          token: ${{ secrets.PUSHOVER_TOKEN }}
+          user: ${{ secrets.PUSHOVER_USER }}
+          title: Deploy

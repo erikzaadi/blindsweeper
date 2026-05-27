@@ -64,8 +64,16 @@ type AppErrorBoundaryState = {
 
 type PointerStart = {
   point: BoardPoint;
+  board: BoardSize;
   startedAt: number;
   maxMovement: number;
+};
+
+type TrailPoint = {
+  x: number;
+  y: number;
+  id: number;
+  timestamp: number;
 };
 
 class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
@@ -631,8 +639,38 @@ function BoardShell({
   const lastFeedbackAtRef = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
   const [proximityIntensity, setProximityIntensity] = useState(0);
-  const [hoverCell, setHoverCell] = useState<CellCoord | null>(null);
+  const [hoverPoint, setHoverPoint] = useState<BoardPoint | null>(null);
+  const [activeLevelId, setActiveLevelId] = useState<string>(level.id);
+  const [trail, setTrail] = useState<TrailPoint[]>([]);
+  const [probedCells, setProbedCells] = useState<CellCoord[]>([]);
   const active = level.status === "active";
+
+  if (activeLevelId !== level.id) {
+    setActiveLevelId(level.id);
+    setTrail([]);
+    setProbedCells([]);
+  }
+
+  useEffect(() => {
+    if (trail.length === 0) {
+      return;
+    }
+    const interval = setInterval(() => {
+      const now = performance.now();
+      setTrail((prev) => {
+        const next = prev.filter((p) => {
+          return now - p.timestamp < 800;
+        });
+        if (next.length === prev.length) {
+          return prev;
+        }
+        return next;
+      });
+    }, 100);
+    return () => {
+      clearInterval(interval);
+    };
+  }, [trail.length]);
 
   function updateProximity(intensity: number) {
     setProximityIntensity(intensity);
@@ -650,8 +688,10 @@ function BoardShell({
 
     event.currentTarget.setPointerCapture(event.pointerId);
     const point = eventPoint(event);
+    const board = eventBoard(event);
     pointerStartRef.current = {
       point,
+      board,
       startedAt: event.timeStamp,
       maxMovement: 0,
     };
@@ -680,19 +720,27 @@ function BoardShell({
     pointerStartRef.current = null;
     updateProximity(0);
 
-    const cell = eventCell(event, point, level);
+    const cell = pointToCell(start.point, start.board, level.config);
     const duration = event.timeStamp - start.startedAt;
     const tapped = start.maxMovement <= TAP_MOVEMENT_THRESHOLD_PX && duration <= TAP_DURATION_THRESHOLD_MS;
     if (tapped && !containsCell(level.markedCells, cell)) {
       playSoundEffect("mark", settings.audioEnabled);
+      if (settings.hapticsEnabled && "vibrate" in navigator) {
+        try {
+          navigator.vibrate(30);
+        } catch {
+          // vibrate blocked by browser policy
+        }
+      }
       onMarkCell(cell);
     }
+    setHoverPoint(null);
   }
 
   function handlePointerCancel() {
     pointerStartRef.current = null;
     updateProximity(0);
-    setHoverCell(null);
+    setHoverPoint(null);
   }
 
   function handlePointerProbe(event: PointerEvent<HTMLDivElement>, point: BoardPoint, allowCollision: boolean) {
@@ -701,7 +749,7 @@ function BoardShell({
     const collision = resolveDragCollision(cell, level.mines, level.markedCells);
     if (allowCollision && collision.exploded && collision.cell) {
       pointerStartRef.current = null;
-      setHoverCell(collision.cell);
+      setHoverPoint(null);
       updateProximity(1);
       runFeedback(1, settings, audioContextRef, lastFeedbackAtRef, true);
       onExplodeCell(collision.cell);
@@ -709,7 +757,30 @@ function BoardShell({
     }
 
     const proximity = computeProximity(point, board, level.config, level.mines, level.markedCells);
-    setHoverCell(cell);
+
+    setProbedCells((prev) => {
+      if (containsCell(prev, cell)) {
+        return prev;
+      }
+      return [...prev, cell];
+    });
+
+    const normalized = {
+      x: point.x / board.width,
+      y: point.y / board.height,
+    };
+    setHoverPoint(normalized);
+    
+    const now = performance.now();
+    setTrail((prev) => {
+      return [
+        ...prev.filter((p) => {
+          return now - p.timestamp < 800;
+        }),
+        { x: normalized.x, y: normalized.y, id: now, timestamp: now },
+      ];
+    });
+
     updateProximity(proximity.intensity);
     runFeedback(proximity.intensity, settings, audioContextRef, lastFeedbackAtRef, false);
   }
@@ -751,13 +822,48 @@ function BoardShell({
           outlineOffset: "-1px",
         }}
       >
-        {hoverCell && settings.visualFallbackEnabled && active && (
+        {active && trail.map((p) => {
+          return (
+            <div
+              key={p.id}
+              className="animate-trail pointer-events-none absolute h-2 w-2 rounded-full bg-emerald-400/80 shadow-[0_0_8px_rgba(52,211,153,0.9)]"
+              style={{
+                left: `${p.x * 100}%`,
+                top: `${p.y * 100}%`,
+              }}
+            />
+          );
+        })}
+        {active && probedCells.map((cell) => {
+          return (
+            <div
+              key={`probed:${cell.row}:${cell.col}`}
+              className="pointer-events-none absolute border border-white/[0.015] bg-emerald-500/[0.012]"
+              style={cellSlotStyle(cell, level.config)}
+            />
+          );
+        })}
+        {hoverPoint && settings.visualFallbackEnabled && active && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute flex items-center justify-center transition-all duration-75"
-            style={cellSlotStyle(hoverCell, level.config)}
+            className="pointer-events-none absolute flex items-center justify-center"
+            style={{
+              left: `${hoverPoint.x * 100}%`,
+              top: `${hoverPoint.y * 100}%`,
+              width: `calc(100% / ${level.config.cols})`,
+              height: `calc(100% / ${level.config.rows})`,
+              transform: `translate(-50%, -50%) scale(${1 - proximityIntensity * 0.45})`,
+            }}
           >
-            <div className="aspect-square w-full max-h-full rounded-full bg-white/[0.06]" />
+            <div
+              className="aspect-square h-full max-w-full rounded-full transition-colors duration-75"
+              style={{
+                backgroundColor: `rgba(${Math.round(255 - proximityIntensity * 239)}, ${Math.round(255 - proximityIntensity * 70)}, ${Math.round(255 - proximityIntensity * 126)}, ${0.06 + proximityIntensity * 0.34})`,
+                boxShadow: proximityIntensity > 0.05
+                  ? `0 0 ${Math.round(4 + proximityIntensity * 18)}px rgba(52, 211, 153, ${0.1 + proximityIntensity * 0.7})`
+                  : undefined,
+              }}
+            />
           </div>
         )}
         {level.explosionCell && (
@@ -766,8 +872,8 @@ function BoardShell({
             className="pointer-events-none absolute flex items-center justify-center"
             style={cellSlotStyle(level.explosionCell, level.config)}
           >
-            <div className="relative flex aspect-square w-full max-h-full items-center justify-center">
-              <div className="absolute -inset-[20%] rounded-full bg-red-950/60" />
+            <div className="relative flex aspect-square h-full max-w-full items-center justify-center">
+              <div className="absolute -inset-[20%] rounded-full" style={{ background: "radial-gradient(circle, rgba(127,7,7,0.7) 0%, rgba(127,7,7,0.3) 50%, transparent 75%)" }} />
               <img
                 alt=""
                 className="relative z-10 h-full w-full object-contain"
@@ -900,10 +1006,6 @@ function eventPoint(event: PointerEvent<HTMLDivElement>): BoardPoint {
 function eventBoard(event: PointerEvent<HTMLDivElement>): BoardSize {
   const rect = event.currentTarget.getBoundingClientRect();
   return { width: rect.width, height: rect.height };
-}
-
-function eventCell(event: PointerEvent<HTMLDivElement>, point: BoardPoint, level: LevelState): CellCoord {
-  return pointToCell(point, eventBoard(event), level.config);
 }
 
 function distancePx(a: BoardPoint, b: BoardPoint): number {
