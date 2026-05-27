@@ -20,7 +20,7 @@ import type {
   MarkHint,
 } from "../types";
 import { BOMB_ASSET_URL, EXPLOSION_ASSET_URL, MARK_ASSET_URL, MARK_CONFIRMED_ASSET_URL } from "../lib/assets";
-import { playSoundEffect, runFeedback } from "../lib/audio";
+import { playSoundEffect, runFeedback, triggerHaptic, unlockAudio } from "../lib/audio";
 
 const TAP_MOVEMENT_THRESHOLD_PX = 10;
 const TAP_DURATION_THRESHOLD_MS = 450;
@@ -123,6 +123,20 @@ export function BoardShell({
   const [probedCells, setProbedCells] = useState<CellCoord[]>([]);
   const active = level.status === "active";
 
+  // Use native DOM listeners (not React synthetic events) so iOS recognizes
+  // the first touch as a user gesture and allows AudioContext.resume() to succeed.
+  useEffect(() => {
+    function unlock() {
+      unlockAudio(audioContextRef);
+    }
+    document.addEventListener("touchstart", unlock, { once: true, passive: true });
+    document.addEventListener("pointerdown", unlock, { once: true });
+    return () => {
+      document.removeEventListener("touchstart", unlock);
+      document.removeEventListener("pointerdown", unlock);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (activeLevelId !== level.id) {
     setActiveLevelId(level.id);
     setTrail([]);
@@ -165,6 +179,7 @@ export function BoardShell({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
+    unlockAudio(audioContextRef);
     const point = eventPoint(event);
     const board = eventBoard(event);
     pointerStartRef.current = {
@@ -203,12 +218,8 @@ export function BoardShell({
     const tapped = start.maxMovement <= TAP_MOVEMENT_THRESHOLD_PX && duration <= TAP_DURATION_THRESHOLD_MS;
     if (tapped && !containsCell(level.markedCells, cell)) {
       playSoundEffect("mark", settings.audioEnabled);
-      if (settings.hapticsEnabled && "vibrate" in navigator) {
-        try {
-          navigator.vibrate(30);
-        } catch {
-          // vibrate blocked by browser policy
-        }
+      if (settings.hapticsEnabled) {
+        triggerHaptic(30, 0.5);
       }
       onMarkCell(cell);
     }
