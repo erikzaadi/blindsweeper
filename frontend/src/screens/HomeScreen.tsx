@@ -60,7 +60,7 @@ export function HomeScreen({
 
   return (
     <main className="flex min-h-dvh flex-col bg-[#050505] text-zinc-100">
-      <nav className="flex items-center justify-between gap-2 px-5 pt-5">
+      <nav className="flex items-stretch justify-between gap-2 px-5 pt-5">
         <button
           className="rounded border border-zinc-800 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
           type="button"
@@ -68,7 +68,7 @@ export function HomeScreen({
         >
           How to play
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-stretch gap-2">
           <button
             className="rounded border border-zinc-800 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
             type="button"
