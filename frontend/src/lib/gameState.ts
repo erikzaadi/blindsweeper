@@ -293,3 +293,10 @@ function createId(prefix: string): string {
 function nowIso(): string {
   return new Date().toISOString();
 }
+
+export function computeLevelScore(level: LevelState): number {
+  if (level.markedCells.length === 0) {
+    return 0;
+  }
+  return Math.round((level.config.mineCount / level.markedCells.length) * 100);
+}
