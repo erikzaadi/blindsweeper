@@ -18,6 +18,12 @@ export function startRun(
     return state;
   }
 
+  const abandonedRuns = state.runs.map((r) =>
+    r.profileId === profileId && r.status === "active"
+      ? { ...r, status: "abandoned" as const, updatedAt: now }
+      : r,
+  );
+
   const run: GameRun = {
     id: createId("run"),
     profileId,
@@ -35,7 +41,7 @@ export function startRun(
   return {
     ...state,
     selectedProfileId: profileId,
-    runs: [...state.runs, runWithLevel],
+    runs: [...abandonedRuns, runWithLevel],
     levels: [...state.levels, currentLevel],
   };
 }
@@ -335,22 +341,21 @@ export function computeLevelScore(level: LevelState): number {
 
 export type LevelHighScore = {
   levelNumber: number;
-  bestScore: number;
+  bestScore: number | null;
   mineCount: number;
 };
 
 export function getHighScoreBoard(state: PersistedGameState, profileId: string): LevelHighScore[] {
   const runs = state.runs.filter((run) => run.profileId === profileId);
   const runIds = new Set(runs.map((run) => run.id));
-  const completed = state.levels.filter(
-    (level) => runIds.has(level.runId) && level.status === "completed",
-  );
+  const profileLevels = state.levels.filter((level) => runIds.has(level.runId));
+  const completed = profileLevels.filter((level) => level.status === "completed");
 
   const byLevel = new Map<number, LevelHighScore>();
   for (const level of completed) {
     const score = computeLevelScore(level);
     const existing = byLevel.get(level.levelNumber);
-    if (!existing || score > existing.bestScore) {
+    if (!existing || score > (existing.bestScore ?? -1)) {
       byLevel.set(level.levelNumber, {
         levelNumber: level.levelNumber,
         bestScore: score,
@@ -359,5 +364,15 @@ export function getHighScoreBoard(state: PersistedGameState, profileId: string):
     }
   }
 
-  return Array.from(byLevel.values()).sort((a, b) => a.levelNumber - b.levelNumber);
+  const scores = Array.from(byLevel.values()).sort((a, b) => a.levelNumber - b.levelNumber);
+
+  const maxReached = profileLevels.reduce((max, level) => Math.max(max, level.levelNumber), 0);
+  const maxCompleted = scores.length > 0 ? scores[scores.length - 1].levelNumber : 0;
+
+  if (maxReached > maxCompleted) {
+    const frontierConfig = buildMinefieldConfig(maxReached, "");
+    scores.push({ levelNumber: maxReached, bestScore: null, mineCount: frontierConfig.mineCount });
+  }
+
+  return scores;
 }

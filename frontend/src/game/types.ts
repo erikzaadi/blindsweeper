@@ -58,7 +58,7 @@ export type MarkHint = {
   intensity: number;
 };
 
-export type GameRunStatus = "active" | "failed" | "completed";
+export type GameRunStatus = "active" | "failed" | "completed" | "abandoned";
 
 export type GameRun = {
   id: Id;

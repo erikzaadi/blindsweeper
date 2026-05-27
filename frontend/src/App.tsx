@@ -116,6 +116,10 @@ function BlindSweeperApp() {
   const snapshot = useMemo(() => getSelectedRunSnapshot(state), [state]);
   const stats = useMemo(() => getPlayerStats(state, DEFAULT_PROFILE_ID), [state]);
   const highScores = useMemo(() => getHighScoreBoard(state, DEFAULT_PROFILE_ID), [state]);
+  const frontierLevel = useMemo(
+    () => highScores.find((s) => s.bestScore === null)?.levelNumber,
+    [highScores],
+  );
 
   const levelJustCompleted =
     snapshot?.run.status === "active" && snapshot.currentLevel.status === "completed";
@@ -157,7 +161,7 @@ function BlindSweeperApp() {
       return;
     }
     setConfirmingNewRun(false);
-    setState((s) => startRun(s));
+    setState((s) => startRun(s, undefined, undefined, frontierLevel ?? 1));
     navigateTo("game", setRoute);
   }
 
@@ -314,7 +318,14 @@ function BlindSweeperApp() {
   }
 
   if (route === "scores") {
-    return <HighScoreScreen scores={highScores} onBack={handleCloseScores} onPlayLevel={handlePlayLevel} />;
+    return (
+      <HighScoreScreen
+        scores={highScores}
+        onBack={handleCloseScores}
+        onPlayLevel={handlePlayLevel}
+        onResumeRun={snapshot?.run.status === "active" ? handleOpenGame : undefined}
+      />
+    );
   }
 
   return (
@@ -328,6 +339,8 @@ function BlindSweeperApp() {
       onOpenSettings={handleOpenSettings}
       onOpenHowTo={handleOpenHowTo}
       onOpenScores={handleOpenScores}
+      onPlayLevel={handlePlayLevel}
+      frontierLevel={frontierLevel}
       onDismissOnboarding={handleDismissOnboarding}
     />
   );

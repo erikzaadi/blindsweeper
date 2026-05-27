@@ -32,6 +32,8 @@ export function HomeScreen({
   onOpenSettings,
   onOpenHowTo,
   onOpenScores,
+  onPlayLevel,
+  frontierLevel,
   onDismissOnboarding,
 }: {
   snapshot: ReturnType<typeof getSelectedRunSnapshot>;
@@ -43,6 +45,8 @@ export function HomeScreen({
   onOpenSettings: () => void;
   onOpenHowTo: () => void;
   onOpenScores: () => void;
+  onPlayLevel?: (levelNumber: number) => void;
+  frontierLevel?: number;
   onDismissOnboarding: () => void;
 }) {
   const hasRun = snapshot !== null;
@@ -177,6 +181,15 @@ export function HomeScreen({
                     onClick={onOpenGame}
                   >
                     Resume run
+                  </button>
+                )}
+                {onPlayLevel && frontierLevel && frontierLevel > (snapshot?.currentLevel.levelNumber ?? 0) && (
+                  <button
+                    className="w-full rounded border border-zinc-700 py-3 text-sm font-semibold text-zinc-300 hover:border-zinc-500 hover:text-zinc-100"
+                    type="button"
+                    onClick={() => onPlayLevel(frontierLevel)}
+                  >
+                    Jump to level {frontierLevel}
                   </button>
                 )}
                 {confirmingNewRun && isActive ? (

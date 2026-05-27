@@ -4,6 +4,7 @@ import {
   createInitialGameState,
   failCurrentLevel,
   getActiveRunSnapshot,
+  getHighScoreBoard,
   getSelectedRunSnapshot,
   markCurrentLevel,
   resetRunLevel,
@@ -71,6 +72,68 @@ describe("gameState", () => {
     expect(failedSnapshot?.run.status).toBe("failed");
     expect(failedSnapshot?.currentLevel.status).toBe("exploded");
     expect(failedSnapshot?.currentLevel.explosionCell).toEqual(mine);
+  });
+
+  it("abandons the active run when a new run is started", () => {
+    let state = createInitialGameState();
+    state = startRun(state, state.selectedProfileId, "2026-05-22T00:00:01.000Z");
+    const firstRunId = getActiveRunSnapshot(state)!.run.id;
+
+    state = startRun(state, state.selectedProfileId, "2026-05-22T00:00:02.000Z");
+
+    const firstRun = state.runs.find((r) => r.id === firstRunId);
+    expect(firstRun?.status).toBe("abandoned");
+    expect(getActiveRunSnapshot(state)?.run.id).not.toBe(firstRunId);
+    expect(state.runs.filter((r) => r.status === "active")).toHaveLength(1);
+  });
+
+  it("starts a new run at a specific level number", () => {
+    let state = createInitialGameState();
+    state = startRun(state, state.selectedProfileId, "2026-05-22T00:00:01.000Z", 5);
+    const snapshot = getActiveRunSnapshot(state);
+
+    expect(snapshot?.currentLevel.levelNumber).toBe(5);
+    expect(snapshot?.currentLevel.config.mineCount).toBe(7);
+  });
+
+  it("new run started at frontier skips back to the earned level", () => {
+    let state = createInitialGameState();
+    state = startRun(state, state.selectedProfileId, "2026-05-22T00:00:01.000Z");
+    const firstLevel = getActiveRunSnapshot(state)!.currentLevel;
+
+    for (const mine of firstLevel.mines) {
+      state = markCurrentLevel(state, mine, "2026-05-22T00:00:02.000Z");
+    }
+    state = advanceToNextLevel(state, "2026-05-22T00:00:03.000Z");
+
+    const board = getHighScoreBoard(state, state.selectedProfileId!);
+    const frontier = board.find((entry) => entry.bestScore === null);
+    expect(frontier?.levelNumber).toBe(2);
+
+    // user clicks "New run" with frontier level 2
+    state = startRun(state, state.selectedProfileId, "2026-05-22T00:00:04.000Z", frontier!.levelNumber);
+
+    expect(getActiveRunSnapshot(state)?.currentLevel.levelNumber).toBe(2);
+    expect(state.runs.filter((r) => r.status === "active")).toHaveLength(1);
+  });
+
+  it("includes the frontier level in the high score board when max reached exceeds max completed", () => {
+    let state = createInitialGameState();
+    state = startRun(state, state.selectedProfileId, "2026-05-22T00:00:01.000Z");
+    const firstLevel = getActiveRunSnapshot(state)!.currentLevel;
+
+    for (const mine of firstLevel.mines) {
+      state = markCurrentLevel(state, mine, "2026-05-22T00:00:02.000Z");
+    }
+    state = advanceToNextLevel(state, "2026-05-22T00:00:03.000Z");
+
+    // now retry level 1 — level 2 is earned but not completed
+    state = startRun(state, state.selectedProfileId, "2026-05-22T00:00:04.000Z");
+
+    const board = getHighScoreBoard(state, state.selectedProfileId!);
+    const frontier = board.find((entry) => entry.bestScore === null);
+    expect(frontier?.levelNumber).toBe(2);
+    expect(frontier?.bestScore).toBeNull();
   });
 
   it("restarts the displayed failed run", () => {
