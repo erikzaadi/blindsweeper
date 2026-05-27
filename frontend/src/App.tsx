@@ -14,8 +14,10 @@ import type {
   PersistedGameState,
 } from "./types";
 import {
+  advanceToNextLevel,
   computeLevelScore,
   failCurrentLevel,
+  getBestScoreForLevel,
   getPlayerStats,
   getSelectedRunSnapshot,
   markCurrentLevel,
@@ -30,7 +32,7 @@ import {
   savePersistedGameState,
 } from "./lib/localStorageState";
 import { playSoundEffect } from "./lib/audio";
-import { GESTURE_HINT_KEY } from "./lib/assets";
+import { GESTURE_HINT_KEY, HOWTO_SEEN_KEY } from "./lib/assets";
 import { BoardShell } from "./components/BoardShell";
 import { GameHeader } from "./components/GameHeader";
 import { LevelCompleteOverlay } from "./components/LevelCompleteOverlay";
@@ -102,13 +104,18 @@ function BlindSweeperApp() {
   const [gestureHintDismissed, setGestureHintDismissed] = useState(
     () => localStorage.getItem(GESTURE_HINT_KEY) === "1",
   );
+  const [onboardingDismissed, setOnboardingDismissed] = useState(
+    () => localStorage.getItem(HOWTO_SEEN_KEY) === "1",
+  );
   const [confirmingNewRun, setConfirmingNewRun] = useState(false);
   const [proximityIntensity, setProximityIntensity] = useState(0);
-  const [celebratingLevel, setCelebratingLevel] = useState<{ levelNumber: number; score: number } | null>(null);
-  const prevLevelNumberRef = useRef<number | null>(null);
+  const prevLevelStatusRef = useRef<string | null>(null);
 
   const snapshot = useMemo(() => getSelectedRunSnapshot(state), [state]);
   const stats = useMemo(() => getPlayerStats(state, DEFAULT_PROFILE_ID), [state]);
+
+  const levelJustCompleted =
+    snapshot?.run.status === "active" && snapshot.currentLevel.status === "completed";
 
   useEffect(() => {
     savePersistedGameState(state);
@@ -132,30 +139,13 @@ function BlindSweeperApp() {
   }, [confirmingNewRun]);
 
   useEffect(() => {
-    if (!snapshot || snapshot.run.status !== "active") {
-      prevLevelNumberRef.current = null;
-      return;
+    const status = snapshot?.currentLevel.status ?? null;
+    if (status === "completed" && prevLevelStatusRef.current === "active") {
+      const score = computeLevelScore(snapshot!.currentLevel);
+      playSoundEffect(score === 100 ? "level-complete-perfect" : "level-complete", state.settings.audioEnabled);
     }
-    const current = snapshot.currentLevel.levelNumber;
-    const prev = prevLevelNumberRef.current;
-    if (prev !== null && current > prev) {
-      const completedLevel = state.levels
-        .filter((l) => l.runId === snapshot.run.id && l.levelNumber === prev && l.status === "completed")
-        .at(-1);
-      const score = completedLevel ? computeLevelScore(completedLevel) : 100;
-      setCelebratingLevel({ levelNumber: prev, score });
-    }
-    prevLevelNumberRef.current = current;
-  }, [snapshot, state.levels]);
-
-  useEffect(() => {
-    if (celebratingLevel === null) {
-      return;
-    }
-    playSoundEffect(celebratingLevel.score === 100 ? "level-complete-perfect" : "level-complete", state.settings.audioEnabled);
-    const id = setTimeout(() => setCelebratingLevel(null), 2500);
-    return () => clearTimeout(id);
-  }, [celebratingLevel, state.settings.audioEnabled]);
+    prevLevelStatusRef.current = status;
+  }, [snapshot?.currentLevel.status, snapshot?.currentLevel.id, snapshot, state.settings.audioEnabled]);
 
   function handleStartRun() {
     const isActive = snapshot?.run.status === "active";
@@ -197,7 +187,21 @@ function BlindSweeperApp() {
     navigateTo("home", setRoute);
   }
 
+  function handleDismissOnboarding() {
+    localStorage.setItem(HOWTO_SEEN_KEY, "1");
+    setOnboardingDismissed(true);
+  }
+
   function handleResetLevel() {
+    const runId = snapshot?.run.id;
+    setState((s) => runId ? resetRunLevel(s, runId) : resetCurrentLevel(s));
+  }
+
+  function handleAdvanceLevel() {
+    setState((s) => advanceToNextLevel(s));
+  }
+
+  function handleImproveLevel() {
     const runId = snapshot?.run.id;
     setState((s) => runId ? resetRunLevel(s, runId) : resetCurrentLevel(s));
   }
@@ -222,8 +226,14 @@ function BlindSweeperApp() {
   if (route === "game") {
     return (
       <main className="relative flex min-h-dvh flex-col bg-black text-zinc-100">
-        {celebratingLevel !== null && (
-          <LevelCompleteOverlay levelNumber={celebratingLevel.levelNumber} score={celebratingLevel.score} />
+        {levelJustCompleted && snapshot && (
+          <LevelCompleteOverlay
+            levelNumber={snapshot.currentLevel.levelNumber}
+            score={computeLevelScore(snapshot.currentLevel)}
+            bestScore={getBestScoreForLevel(state, snapshot.currentLevel.levelNumber, DEFAULT_PROFILE_ID)}
+            onNextLevel={handleAdvanceLevel}
+            onImprove={handleImproveLevel}
+          />
         )}
         {snapshot ? (
           <>
@@ -292,10 +302,12 @@ function BlindSweeperApp() {
       snapshot={snapshot}
       stats={stats}
       confirmingNewRun={confirmingNewRun}
+      showOnboarding={!onboardingDismissed && snapshot === null}
       onStartRun={handleStartRun}
       onOpenGame={snapshot ? handleOpenGame : undefined}
       onOpenSettings={handleOpenSettings}
       onOpenHowTo={handleOpenHowTo}
+      onDismissOnboarding={handleDismissOnboarding}
     />
   );
 }

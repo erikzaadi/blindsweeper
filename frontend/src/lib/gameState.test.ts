@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  advanceToNextLevel,
   createInitialGameState,
   failCurrentLevel,
   getActiveRunSnapshot,
@@ -32,11 +33,12 @@ describe("gameState", () => {
       state = markCurrentLevel(state, mine, "2026-05-22T00:00:02.000Z");
     }
 
-    const snapshot = getActiveRunSnapshot(state);
     const completedLevel = state.levels.find((level) => level.id === firstLevel!.id);
-
     expect(completedLevel?.status).toBe("completed");
-    expect(snapshot?.currentLevel.levelNumber).toBe(2);
+    expect(getActiveRunSnapshot(state)?.currentLevel.levelNumber).toBe(1);
+
+    state = advanceToNextLevel(state, "2026-05-22T00:00:03.000Z");
+    expect(getActiveRunSnapshot(state)?.currentLevel.levelNumber).toBe(2);
   });
 
   it("marks a safe cell with a proximity hint", () => {

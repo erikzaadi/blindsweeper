@@ -91,15 +91,9 @@ export function markCurrentLevel(
   }
 
   if (markResult.outcome === "completed") {
-    const nextLevel = createLevel(snapshot.run.id, snapshot.currentLevel.levelNumber + 1, now);
     return {
       ...state,
-      levels: [...updatedLevels, nextLevel],
-      runs: replaceRun(state.runs, {
-        ...snapshot.run,
-        currentLevelId: nextLevel.id,
-        updatedAt: now,
-      }),
+      levels: updatedLevels,
     };
   }
 
@@ -177,6 +171,39 @@ function resetSnapshotLevel(
       completedAt: undefined,
     }),
   };
+}
+
+export function advanceToNextLevel(state: PersistedGameState, now = nowIso()): PersistedGameState {
+  const snapshot = getActiveRunSnapshot(state);
+  if (!snapshot || snapshot.currentLevel.status !== "completed") {
+    return state;
+  }
+  const nextLevel = createLevel(snapshot.run.id, snapshot.currentLevel.levelNumber + 1, now);
+  return {
+    ...state,
+    levels: [...state.levels, nextLevel],
+    runs: replaceRun(state.runs, {
+      ...snapshot.run,
+      currentLevelId: nextLevel.id,
+      updatedAt: now,
+    }),
+  };
+}
+
+export function getBestScoreForLevel(
+  state: PersistedGameState,
+  levelNumber: number,
+  profileId: string,
+): number {
+  const runs = state.runs.filter((run) => run.profileId === profileId);
+  const runIds = new Set(runs.map((run) => run.id));
+  const completed = state.levels.filter(
+    (level) => runIds.has(level.runId) && level.levelNumber === levelNumber && level.status === "completed",
+  );
+  if (completed.length === 0) {
+    return 0;
+  }
+  return Math.max(...completed.map(computeLevelScore));
 }
 
 export function getPlayerStats(state: PersistedGameState, profileId: string): PlayerStats {

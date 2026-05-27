@@ -26,22 +26,31 @@ export function HomeScreen({
   snapshot,
   stats,
   confirmingNewRun,
+  showOnboarding,
   onStartRun,
   onOpenGame,
   onOpenSettings,
   onOpenHowTo,
+  onDismissOnboarding,
 }: {
   snapshot: ReturnType<typeof getSelectedRunSnapshot>;
   stats: ReturnType<typeof getPlayerStats>;
   confirmingNewRun: boolean;
+  showOnboarding: boolean;
   onStartRun: () => void;
   onOpenGame?: () => void;
   onOpenSettings: () => void;
   onOpenHowTo: () => void;
+  onDismissOnboarding: () => void;
 }) {
   const hasRun = snapshot !== null;
   const isActive = snapshot?.run.status === "active";
   const isFailed = snapshot?.run.status === "failed";
+
+  function handleOpenHowTo() {
+    onDismissOnboarding();
+    onOpenHowTo();
+  }
 
   return (
     <main className="flex min-h-dvh flex-col bg-[#050505] text-zinc-100">
@@ -49,7 +58,7 @@ export function HomeScreen({
         <button
           className="rounded border border-zinc-800 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
           type="button"
-          onClick={onOpenHowTo}
+          onClick={handleOpenHowTo}
         >
           How to play
         </button>
@@ -61,6 +70,31 @@ export function HomeScreen({
           Settings
         </button>
       </nav>
+
+      {showOnboarding && (
+        <div className="mx-5 mt-4 flex items-center justify-between gap-3 rounded border border-emerald-800/50 bg-emerald-950/30 px-4 py-3">
+          <p className="text-xs text-emerald-300">
+            First time? Learn how the game works.
+          </p>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              className="text-xs font-semibold text-emerald-400 hover:text-emerald-300"
+              type="button"
+              onClick={handleOpenHowTo}
+            >
+              How to play
+            </button>
+            <button
+              aria-label="Dismiss"
+              className="text-zinc-600 hover:text-zinc-400"
+              type="button"
+              onClick={onDismissOnboarding}
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 pb-12">
         <div className="w-full max-w-xs text-center">

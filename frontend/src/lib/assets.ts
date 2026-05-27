@@ -9,3 +9,4 @@ export const EXPLOSION_ASSET_URL = assetUrl("images/game/explosion.png");
 export const LEVEL_COMPLETE_ASSET_URL = assetUrl("images/game/level-complete.png");
 
 export const GESTURE_HINT_KEY = "blindsweeper:gesture-hint-dismissed";
+export const HOWTO_SEEN_KEY = "blindsweeper:howto-seen";
