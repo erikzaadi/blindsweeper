@@ -9,6 +9,7 @@ export default defineConfig(({ command }) => {
 
   return {
     base,
+    server: { port: 3333 },
     plugins: [
       react(),
       tailwindcss(),

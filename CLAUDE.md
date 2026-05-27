@@ -6,7 +6,7 @@ BlindSweeper web app. Stack: React 19 + Vite + Tailwind frontend, localStorage p
 
 ```bash
 npm run install:all   # install root and frontend
-npm run dev           # frontend :5173
+npm run dev           # frontend :3333
 ```
 
 The repo does not use npm workspaces. `install:all` installs root and frontend packages explicitly.
