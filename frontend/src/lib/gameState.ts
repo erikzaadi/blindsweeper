@@ -8,7 +8,12 @@ export type ActiveRunSnapshot = {
   currentLevel: LevelState;
 };
 
-export function startRun(state: PersistedGameState, profileId = state.selectedProfileId, now = nowIso()): PersistedGameState {
+export function startRun(
+  state: PersistedGameState,
+  profileId = state.selectedProfileId,
+  now = nowIso(),
+  startingLevelNumber = 1,
+): PersistedGameState {
   if (!profileId || !state.profiles.some((profile) => profile.id === profileId)) {
     return state;
   }
@@ -21,7 +26,7 @@ export function startRun(state: PersistedGameState, profileId = state.selectedPr
     startedAt: now,
     updatedAt: now,
   };
-  const currentLevel = createLevel(run.id, 1, now);
+  const currentLevel = createLevel(run.id, startingLevelNumber, now);
   const runWithLevel: GameRun = {
     ...run,
     currentLevelId: currentLevel.id,
@@ -326,4 +331,33 @@ export function computeLevelScore(level: LevelState): number {
     return 0;
   }
   return Math.round((level.config.mineCount / level.markedCells.length) * 100);
+}
+
+export type LevelHighScore = {
+  levelNumber: number;
+  bestScore: number;
+  mineCount: number;
+};
+
+export function getHighScoreBoard(state: PersistedGameState, profileId: string): LevelHighScore[] {
+  const runs = state.runs.filter((run) => run.profileId === profileId);
+  const runIds = new Set(runs.map((run) => run.id));
+  const completed = state.levels.filter(
+    (level) => runIds.has(level.runId) && level.status === "completed",
+  );
+
+  const byLevel = new Map<number, LevelHighScore>();
+  for (const level of completed) {
+    const score = computeLevelScore(level);
+    const existing = byLevel.get(level.levelNumber);
+    if (!existing || score > existing.bestScore) {
+      byLevel.set(level.levelNumber, {
+        levelNumber: level.levelNumber,
+        bestScore: score,
+        mineCount: level.config.mineCount,
+      });
+    }
+  }
+
+  return Array.from(byLevel.values()).sort((a, b) => a.levelNumber - b.levelNumber);
 }

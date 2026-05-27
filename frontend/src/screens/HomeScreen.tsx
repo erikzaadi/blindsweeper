@@ -31,6 +31,7 @@ export function HomeScreen({
   onOpenGame,
   onOpenSettings,
   onOpenHowTo,
+  onOpenScores,
   onDismissOnboarding,
 }: {
   snapshot: ReturnType<typeof getSelectedRunSnapshot>;
@@ -41,6 +42,7 @@ export function HomeScreen({
   onOpenGame?: () => void;
   onOpenSettings: () => void;
   onOpenHowTo: () => void;
+  onOpenScores: () => void;
   onDismissOnboarding: () => void;
 }) {
   const hasRun = snapshot !== null;
@@ -54,7 +56,7 @@ export function HomeScreen({
 
   return (
     <main className="flex min-h-dvh flex-col bg-[#050505] text-zinc-100">
-      <nav className="flex items-center justify-between px-5 pt-5">
+      <nav className="flex items-center justify-between gap-2 px-5 pt-5">
         <button
           className="rounded border border-zinc-800 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
           type="button"
@@ -62,13 +64,22 @@ export function HomeScreen({
         >
           How to play
         </button>
-        <button
-          className="rounded border border-zinc-800 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
-          type="button"
-          onClick={onOpenSettings}
-        >
-          Settings
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="rounded border border-zinc-800 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+            type="button"
+            onClick={onOpenScores}
+          >
+            High scores
+          </button>
+          <button
+            className="rounded border border-zinc-800 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"
+            type="button"
+            onClick={onOpenSettings}
+          >
+            Settings
+          </button>
+        </div>
       </nav>
 
       {showOnboarding && (

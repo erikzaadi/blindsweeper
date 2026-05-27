@@ -18,6 +18,7 @@ import {
   computeLevelScore,
   failCurrentLevel,
   getBestScoreForLevel,
+  getHighScoreBoard,
   getPlayerStats,
   getSelectedRunSnapshot,
   markCurrentLevel,
@@ -36,12 +37,13 @@ import { GESTURE_HINT_KEY, HOWTO_SEEN_KEY } from "./lib/assets";
 import { BoardShell } from "./components/BoardShell";
 import { GameHeader } from "./components/GameHeader";
 import { LevelCompleteOverlay } from "./components/LevelCompleteOverlay";
+import { HighScoreScreen } from "./screens/HighScoreScreen";
 import { HomeScreen } from "./screens/HomeScreen";
 import { HowToScreen } from "./screens/HowToScreen";
 import { SettingsScreen } from "./screens/SettingsScreen";
 import "./styles.css";
 
-type AppRoute = "home" | "settings" | "game" | "howto";
+type AppRoute = "home" | "settings" | "game" | "howto" | "scores";
 
 type AppErrorBoundaryProps = {
   children: ReactNode;
@@ -113,6 +115,7 @@ function BlindSweeperApp() {
 
   const snapshot = useMemo(() => getSelectedRunSnapshot(state), [state]);
   const stats = useMemo(() => getPlayerStats(state, DEFAULT_PROFILE_ID), [state]);
+  const highScores = useMemo(() => getHighScoreBoard(state, DEFAULT_PROFILE_ID), [state]);
 
   const levelJustCompleted =
     snapshot?.run.status === "active" && snapshot.currentLevel.status === "completed";
@@ -185,6 +188,19 @@ function BlindSweeperApp() {
 
   function handleCloseHowTo() {
     navigateTo("home", setRoute);
+  }
+
+  function handleOpenScores() {
+    navigateTo("scores", setRoute);
+  }
+
+  function handleCloseScores() {
+    navigateTo("home", setRoute);
+  }
+
+  function handlePlayLevel(levelNumber: number) {
+    setState((s) => startRun(s, undefined, undefined, levelNumber));
+    navigateTo("game", setRoute);
   }
 
   function handleDismissOnboarding() {
@@ -297,6 +313,10 @@ function BlindSweeperApp() {
     return <HowToScreen onBack={handleCloseHowTo} />;
   }
 
+  if (route === "scores") {
+    return <HighScoreScreen scores={highScores} onBack={handleCloseScores} onPlayLevel={handlePlayLevel} />;
+  }
+
   return (
     <HomeScreen
       snapshot={snapshot}
@@ -307,6 +327,7 @@ function BlindSweeperApp() {
       onOpenGame={snapshot ? handleOpenGame : undefined}
       onOpenSettings={handleOpenSettings}
       onOpenHowTo={handleOpenHowTo}
+      onOpenScores={handleOpenScores}
       onDismissOnboarding={handleDismissOnboarding}
     />
   );
@@ -322,6 +343,9 @@ function routeFromPath(pathname: string): AppRoute {
   if (pathname.endsWith("/howto")) {
     return "howto";
   }
+  if (pathname.endsWith("/scores")) {
+    return "scores";
+  }
   return "home";
 }
 
@@ -331,7 +355,8 @@ function navigateTo(route: AppRoute, setRoute: (route: AppRoute) => void): void 
     route === "game" ? "/game" :
       route === "settings" ? "/settings" :
         route === "howto" ? "/howto" :
-          "/";
+          route === "scores" ? "/scores" :
+            "/";
   const nextPath = `${basePath}${suffix}`;
   if (window.location.pathname !== nextPath) {
     window.history.pushState({}, "", nextPath);
