@@ -2,14 +2,77 @@ import type { RefObject } from "react";
 import type { GameSettings } from "../types";
 
 export const FEEDBACK_COOLDOWN_MS = 80;
+export const MIN_VIBRATION_MS = 24;
 
 export type SoundEffect = "mark" | "level-complete" | "level-complete-perfect";
+export type AudioRuntimeState = AudioContextState | "interrupted" | "unsupported" | "unknown";
+
+export type FeedbackCapabilities = {
+  audioSupported: boolean;
+  audioState: AudioRuntimeState;
+  audioUnlocked: boolean;
+  hapticsSupported: boolean;
+  lastVibrateAccepted: boolean | null;
+  lastAudioUnlockError: string | null;
+};
+
+type WebKitWindow = Window & {
+  webkitAudioContext?: typeof AudioContext;
+};
 
 let sharedAudioContext: AudioContext | null = null;
+let capabilities: FeedbackCapabilities = {
+  audioSupported: false,
+  audioState: "unknown",
+  audioUnlocked: false,
+  hapticsSupported: typeof navigator !== "undefined" && typeof navigator.vibrate === "function",
+  lastVibrateAccepted: null,
+  lastAudioUnlockError: null,
+};
+const capabilityListeners = new Set<(capabilities: FeedbackCapabilities) => void>();
 
 // iOS haptic: off-screen rendered checkbox with the Apple `switch` attribute.
 // Must NOT be display:none — iOS only fires Taptic Engine on rendered elements.
 let hapticInputEl: HTMLInputElement | null = null;
+
+function getAudioContextConstructor(): typeof AudioContext | undefined {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  return window.AudioContext ?? (window as WebKitWindow).webkitAudioContext;
+}
+
+function patchCapabilities(next: Partial<FeedbackCapabilities>): void {
+  capabilities = { ...capabilities, ...next };
+  capabilityListeners.forEach((listener) => listener(capabilities));
+}
+
+function refreshAudioCapabilities(ctx?: AudioContext | null): void {
+  const Ctor = getAudioContextConstructor();
+  patchCapabilities({
+    audioSupported: Boolean(Ctor),
+    audioState: ctx ? (ctx.state as AudioRuntimeState) : (Ctor ? capabilities.audioState : "unsupported"),
+    audioUnlocked: Boolean(ctx && ctx.state === "running"),
+  });
+}
+
+export function getFeedbackCapabilities(): FeedbackCapabilities {
+  refreshAudioCapabilities(sharedAudioContext);
+  patchCapabilities({
+    hapticsSupported: typeof navigator !== "undefined" && typeof navigator.vibrate === "function",
+  });
+  return capabilities;
+}
+
+export function subscribeFeedbackCapabilities(
+  listener: (capabilities: FeedbackCapabilities) => void,
+): () => void {
+  capabilityListeners.add(listener);
+  listener(getFeedbackCapabilities());
+  return () => {
+    capabilityListeners.delete(listener);
+  };
+}
 
 function ensureHapticInput(): HTMLInputElement | null {
   if (typeof document === "undefined") {
@@ -31,18 +94,29 @@ function ensureHapticInput(): HTMLInputElement | null {
 
 function setupAudioContextStateChange(ctx: AudioContext): void {
   ctx.onstatechange = () => {
+    refreshAudioCapabilities(ctx);
     // Auto-resume after phone call, backgrounding, or any OS interruption
     if (ctx.state === "suspended" || (ctx.state as string) === "interrupted") {
-      void ctx.resume();
+      void ctx.resume()
+        .then(() => refreshAudioCapabilities(ctx))
+        .catch((error: unknown) => {
+          patchCapabilities({ lastAudioUnlockError: error instanceof Error ? error.message : "Audio resume failed" });
+        });
     }
   };
+  refreshAudioCapabilities(ctx);
 }
 
 export function triggerHaptic(duration: number, _intensity: number): void {
-  if ("vibrate" in navigator) {
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
     try {
-      navigator.vibrate(Math.round(duration));
+      const accepted = navigator.vibrate(Math.max(MIN_VIBRATION_MS, Math.round(duration)));
+      patchCapabilities({
+        hapticsSupported: true,
+        lastVibrateAccepted: accepted,
+      });
     } catch {
+      patchCapabilities({ lastVibrateAccepted: false });
       // blocked by browser policy
     }
     return;
@@ -59,10 +133,16 @@ export function triggerHaptic(duration: number, _intensity: number): void {
 // contexts on iOS. iOS suspends AudioContext until a user gesture; this must be
 // called synchronously within the gesture to satisfy that requirement.
 export function unlockAudio(audioContextRef: RefObject<AudioContext | null>): void {
-  const Ctor = window.AudioContext;
+  const Ctor = getAudioContextConstructor();
   if (!Ctor) {
+    patchCapabilities({
+      audioSupported: false,
+      audioState: "unsupported",
+      audioUnlocked: false,
+    });
     return;
   }
+  patchCapabilities({ audioSupported: true, lastAudioUnlockError: null });
 
   if (!audioContextRef.current) {
     const ctx = new Ctor();
@@ -70,7 +150,11 @@ export function unlockAudio(audioContextRef: RefObject<AudioContext | null>): vo
     setupAudioContextStateChange(ctx);
   }
   if (audioContextRef.current.state !== "running") {
-    void audioContextRef.current.resume();
+    void audioContextRef.current.resume()
+      .then(() => refreshAudioCapabilities(audioContextRef.current))
+      .catch((error: unknown) => {
+        patchCapabilities({ lastAudioUnlockError: error instanceof Error ? error.message : "Audio resume failed" });
+      });
   }
 
   if (!sharedAudioContext) {
@@ -78,18 +162,22 @@ export function unlockAudio(audioContextRef: RefObject<AudioContext | null>): vo
     setupAudioContextStateChange(sharedAudioContext);
   }
   if (sharedAudioContext.state !== "running") {
-    void sharedAudioContext.resume();
+    void sharedAudioContext.resume()
+      .then(() => refreshAudioCapabilities(sharedAudioContext))
+      .catch((error: unknown) => {
+        patchCapabilities({ lastAudioUnlockError: error instanceof Error ? error.message : "Audio resume failed" });
+      });
   }
+  refreshAudioCapabilities(audioContextRef.current);
 }
 
 function scheduleOscillator(ctx: AudioContext, intensity: number, force: boolean): void {
   const now = ctx.currentTime;
   const duration = force ? 0.16 : 0.035 + intensity * 0.045;
-  const osc = new OscillatorNode(ctx, {
-    type: force ? "sawtooth" : "sine",
-    frequency: force ? 110 : 160 + intensity * 520,
-  });
-  const gain = new GainNode(ctx);
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = force ? "sawtooth" : "sine";
+  osc.frequency.setValueAtTime(force ? 110 : 160 + intensity * 520, now);
   gain.gain.setValueAtTime(force ? 0.08 : 0.02 + intensity * 0.04, now);
   gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
   osc.connect(gain);
@@ -116,7 +204,7 @@ export function runFeedback(
   lastFeedbackAtRef.current = now;
 
   if (settings.hapticsEnabled) {
-    const duration = force ? 90 : Math.round(8 + intensity * 42);
+    const duration = force ? 90 : Math.round(MIN_VIBRATION_MS + intensity * 38);
     triggerHaptic(duration, force ? 1 : intensity);
   }
 
@@ -130,8 +218,13 @@ export function playFeedbackTone(
   audioContextRef: RefObject<AudioContext | null>,
   force: boolean,
 ): void {
-  const Ctor = window.AudioContext;
+  const Ctor = getAudioContextConstructor();
   if (!Ctor) {
+    patchCapabilities({
+      audioSupported: false,
+      audioState: "unsupported",
+      audioUnlocked: false,
+    });
     return;
   }
 
@@ -147,7 +240,14 @@ export function playFeedbackTone(
 
   if (context.state !== "running") {
     // resume() is a Promise; await it before scheduling audio (required on iOS)
-    void context.resume().then(() => scheduleOscillator(context, intensity, force));
+    void context.resume()
+      .then(() => {
+        refreshAudioCapabilities(context);
+        scheduleOscillator(context, intensity, force);
+      })
+      .catch((error: unknown) => {
+        patchCapabilities({ lastAudioUnlockError: error instanceof Error ? error.message : "Audio resume failed" });
+      });
     return;
   }
 
@@ -155,8 +255,13 @@ export function playFeedbackTone(
 }
 
 export function getSharedAudioContext(): AudioContext | null {
-  const Ctor = window.AudioContext;
+  const Ctor = getAudioContextConstructor();
   if (!Ctor) {
+    patchCapabilities({
+      audioSupported: false,
+      audioState: "unsupported",
+      audioUnlocked: false,
+    });
     return null;
   }
   if (!sharedAudioContext) {
@@ -174,8 +279,10 @@ export function playNote(
   startAt: number,
   duration: number,
 ): void {
-  const osc = new OscillatorNode(ctx, { type, frequency: freq });
-  const gainNode = new GainNode(ctx);
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, startAt);
   gainNode.gain.setValueAtTime(gainValue, startAt);
   gainNode.gain.exponentialRampToValueAtTime(0.001, startAt + duration);
   osc.connect(gainNode);
@@ -213,7 +320,14 @@ export function playSoundEffect(type: SoundEffect, audioEnabled: boolean): void 
 
   if (ctx.state !== "running") {
     // resume() is a Promise; await it before scheduling audio (required on iOS)
-    void ctx.resume().then(doPlay);
+    void ctx.resume()
+      .then(() => {
+        refreshAudioCapabilities(ctx);
+        doPlay();
+      })
+      .catch((error: unknown) => {
+        patchCapabilities({ lastAudioUnlockError: error instanceof Error ? error.message : "Audio resume failed" });
+      });
     return;
   }
   doPlay();

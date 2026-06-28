@@ -20,7 +20,15 @@ import type {
   MarkHint,
 } from "../types";
 import { BOMB_ASSET_URL, EXPLOSION_ASSET_URL, MARK_ASSET_URL, MARK_CONFIRMED_ASSET_URL } from "../lib/assets";
-import { playSoundEffect, runFeedback, triggerHaptic, unlockAudio } from "../lib/audio";
+import {
+  getFeedbackCapabilities,
+  playFeedbackTone,
+  playSoundEffect,
+  runFeedback,
+  subscribeFeedbackCapabilities,
+  triggerHaptic,
+  unlockAudio,
+} from "../lib/audio";
 
 const TAP_MOVEMENT_THRESHOLD_PX = 10;
 const TAP_DURATION_THRESHOLD_MS = 450;
@@ -121,7 +129,11 @@ export function BoardShell({
   const [activeLevelId, setActiveLevelId] = useState<string>(level.id);
   const [trail, setTrail] = useState<TrailPoint[]>([]);
   const [probedCells, setProbedCells] = useState<CellCoord[]>([]);
+  const [feedbackCapabilities, setFeedbackCapabilities] = useState(getFeedbackCapabilities);
   const active = level.status === "active";
+  const needsAudioUnlock = settings.audioEnabled
+    && feedbackCapabilities.audioSupported
+    && !feedbackCapabilities.audioUnlocked;
 
   // Use native DOM listeners (not React synthetic events) so iOS recognizes
   // the first touch as a user gesture and allows AudioContext.resume() to succeed.
@@ -135,7 +147,11 @@ export function BoardShell({
       document.removeEventListener("touchstart", unlock);
       document.removeEventListener("pointerdown", unlock);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    return subscribeFeedbackCapabilities(setFeedbackCapabilities);
+  }, []);
 
   if (activeLevelId !== level.id) {
     setActiveLevelId(level.id);
@@ -230,6 +246,11 @@ export function BoardShell({
     pointerStartRef.current = null;
     updateProximity(0);
     setHoverPoint(null);
+  }
+
+  function handleEnableSound() {
+    unlockAudio(audioContextRef);
+    playFeedbackTone(0.65, audioContextRef, false);
   }
 
   function handlePointerProbe(event: PointerEvent<HTMLDivElement>, point: BoardPoint, allowCollision: boolean) {
@@ -353,6 +374,34 @@ export function BoardShell({
                   : undefined,
               }}
             />
+          </div>
+        )}
+        {active && (
+          <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2">
+            {needsAudioUnlock && (
+              <button
+                className="pointer-events-auto rounded border border-emerald-500/70 bg-black/85 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.18)]"
+                type="button"
+                onClick={handleEnableSound}
+              >
+                Enable sound
+              </button>
+            )}
+            {settings.audioEnabled && feedbackCapabilities.audioSupported && feedbackCapabilities.audioUnlocked && (
+              <span className="rounded border border-zinc-700/80 bg-black/75 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-zinc-400">
+                Sound ready
+              </span>
+            )}
+            {settings.audioEnabled && !feedbackCapabilities.audioSupported && (
+              <span className="rounded border border-red-900/70 bg-black/75 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-red-300">
+                Sound unavailable
+              </span>
+            )}
+            {settings.hapticsEnabled && !feedbackCapabilities.hapticsSupported && (
+              <span className="rounded border border-zinc-700/80 bg-black/75 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-zinc-500">
+                Haptics unavailable
+              </span>
+            )}
           </div>
         )}
         {level.explosionCell && (

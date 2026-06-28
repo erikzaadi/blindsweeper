@@ -33,6 +33,23 @@ function mockBoard() {
   return board;
 }
 
+function firstSafeCellPoint(state: ReturnType<typeof seedActive>) {
+  const level = state.levels[0];
+  const cellSize = 50;
+  for (let row = 0; row < level.config.rows; row += 1) {
+    for (let col = 0; col < level.config.cols; col += 1) {
+      const mined = level.mines.some((mine) => mine.row === row && mine.col === col);
+      if (!mined) {
+        return {
+          x: col * cellSize + cellSize / 2,
+          y: row * cellSize + cellSize / 2,
+        };
+      }
+    }
+  }
+  throw new Error("Expected at least one safe cell");
+}
+
 beforeEach(() => {
   localStorage.clear();
   window.history.pushState({}, "", "/");
@@ -173,13 +190,14 @@ describe("board pointer events", () => {
   });
 
   it("movement above 10px does not trigger mark", () => {
-    seedActive();
+    const state = seedActive();
     renderAt("/game");
     const board = mockBoard();
+    const point = firstSafeCellPoint(state);
 
-    fireEvent.pointerDown(board, { clientX: 0, clientY: 0, pointerId: 1 });
-    fireEvent.pointerMove(board, { clientX: 25, clientY: 0, pointerId: 1 });
-    fireEvent.pointerUp(board, { clientX: 25, clientY: 0, pointerId: 1 });
+    fireEvent.pointerDown(board, { clientX: point.x, clientY: point.y, pointerId: 1 });
+    fireEvent.pointerMove(board, { clientX: point.x + 12, clientY: point.y, pointerId: 1 });
+    fireEvent.pointerUp(board, { clientX: point.x + 12, clientY: point.y, pointerId: 1 });
 
     expect(screen.getByText(/0\/3 mines/i)).toBeInTheDocument();
   });
