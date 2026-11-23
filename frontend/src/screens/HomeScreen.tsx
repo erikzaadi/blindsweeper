@@ -152,7 +152,8 @@ export function HomeScreen({
               <img
                 alt="BlindSweeper"
                 className="mx-auto h-56 w-56 rounded-full brightness-125 drop-shadow-[0_0_40px_rgba(220,130,30,0.55)]"
-                src={assetUrl("images/app-icon.png")}
+                src={assetUrl("images/icon-512.png")}
+                srcSet={`${assetUrl("images/icon-256.png")} 1x, ${assetUrl("images/icon-512.png")} 2x, ${assetUrl("images/icon-768.png")} 3x`}
               />
               <h1 className="mt-2 text-4xl font-bold tracking-tight text-white">
                 Feel your way.
