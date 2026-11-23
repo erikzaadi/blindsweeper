@@ -55,6 +55,18 @@ describe("manifest.webmanifest", () => {
     expect((manifest.icons as unknown[]).length).toBeGreaterThan(0);
   });
 
+  it("declares 192 and 512 any icons and a separate maskable icon", () => {
+    const icons = manifest.icons as { src: string; sizes: string; purpose?: string }[];
+    const any = icons.filter((icon) => (icon.purpose ?? "any") === "any").map((icon) => icon.sizes);
+    expect(any).toEqual(expect.arrayContaining(["192x192", "512x512"]));
+    expect(icons.some((icon) => icon.purpose === "maskable")).toBe(true);
+    // Combined purposes are flagged by Chrome: maskable art needs its own entry.
+    expect(icons.every((icon) => !icon.purpose?.includes(" "))).toBe(true);
+    for (const icon of icons) {
+      expect(existsSync(resolve(publicDir, icon.src))).toBe(true);
+    }
+  });
+
   it("has theme_color and background_color", () => {
     expect(manifest.theme_color).toBeTruthy();
     expect(manifest.background_color).toBeTruthy();
