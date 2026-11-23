@@ -49,7 +49,7 @@ function HowToStep({
 
 export function HowToScreen({ onBack }: { onBack: () => void }) {
   return (
-    <main className="min-h-dvh bg-[#050505] text-zinc-100">
+    <main className="safe-area-pad min-h-dvh bg-[#050505] text-zinc-100">
       <header className="flex items-center gap-3 border-b border-zinc-800/70 px-5 py-4">
         <button
           className="rounded border border-zinc-800 px-3 py-1.5 text-xs font-semibold uppercase tracking-widest text-zinc-400 hover:border-zinc-600 hover:text-zinc-200"

@@ -35,6 +35,8 @@ const TAP_MOVEMENT_THRESHOLD_PX = 10;
 const TAP_DURATION_THRESHOLD_MS = 450;
 
 type PointerStart = {
+  pointerId: number;
+  captured: boolean;
   point: BoardPoint;
   board: BoardSize;
   startedAt: number;
@@ -176,7 +178,25 @@ export function BoardShell({
     setActiveLevelId(level.id);
     setTrail([]);
     setProbedCells([]);
+    setHoverPoint(null);
+    setProximityIntensity(0);
   }
+
+  // A gesture that started on the previous level must not mark or explode on the new one.
+  useEffect(() => {
+    pointerStartRef.current = null;
+  }, [level.id]);
+
+  // Board size changes (rotation, toolbar, window resize) invalidate the gesture's coordinates.
+  useEffect(() => {
+    function cancelOnResize() {
+      if (pointerStartRef.current) {
+        cancelGesture();
+      }
+    }
+    window.addEventListener("resize", cancelOnResize);
+    return () => window.removeEventListener("resize", cancelOnResize);
+  });
 
   useEffect(() => {
     if (trail.length === 0) {
@@ -209,40 +229,54 @@ export function BoardShell({
       onDismissGestureHint();
     }
 
-    if (!active) {
+    // One gesture at a time, main mouse button only: a second finger or a
+    // right-click must not mark or take over the gesture in progress.
+    if (!active || pointerStartRef.current || (event.pointerType === "mouse" && event.button !== 0)) {
       return;
     }
 
-    event.currentTarget.setPointerCapture(event.pointerId);
+    let captured = true;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      captured = false;
+    }
     const point = eventPoint(event);
     const board = eventBoard(event);
     pointerStartRef.current = {
+      pointerId: event.pointerId,
+      captured,
       point,
       board,
       startedAt: event.timeStamp,
       maxMovement: 0,
     };
-    handlePointerProbe(event, point, false);
+    handlePointerProbe(point, board, false);
+  }
+
+  function ownGesture(event: PointerEvent<HTMLDivElement>): PointerStart | null {
+    const start = pointerStartRef.current;
+    return active && start && start.pointerId === event.pointerId ? start : null;
   }
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!active || !pointerStartRef.current) {
+    const start = ownGesture(event);
+    if (!start) {
       return;
     }
 
     const point = eventPoint(event);
-    const start = pointerStartRef.current;
     start.maxMovement = Math.max(start.maxMovement, distancePx(start.point, point));
-    handlePointerProbe(event, point, start.maxMovement > TAP_MOVEMENT_THRESHOLD_PX);
+    handlePointerProbe(point, start.board, start.maxMovement > TAP_MOVEMENT_THRESHOLD_PX);
   }
 
   function handlePointerUp(event: PointerEvent<HTMLDivElement>) {
-    if (!active || !pointerStartRef.current) {
+    const start = ownGesture(event);
+    if (!start) {
       return;
     }
 
     const point = eventPoint(event);
-    const start = pointerStartRef.current;
     start.maxMovement = Math.max(start.maxMovement, distancePx(start.point, point));
     pointerStartRef.current = null;
     updateProximity(0);
@@ -260,18 +294,34 @@ export function BoardShell({
     setHoverPoint(null);
   }
 
-  function handlePointerCancel() {
+  function cancelGesture() {
     pointerStartRef.current = null;
     updateProximity(0);
     setHoverPoint(null);
+  }
+
+  // Covers pointercancel and losing capture mid-gesture (released captures after
+  // pointerup find no gesture and are ignored).
+  function handlePointerCancel(event: PointerEvent<HTMLDivElement>) {
+    if (ownGesture(event)) {
+      cancelGesture();
+    }
+  }
+
+  // Without capture, a pointer that leaves the board would never deliver its pointerup here.
+  function handlePointerLeave(event: PointerEvent<HTMLDivElement>) {
+    const start = ownGesture(event);
+    if (start && !start.captured) {
+      cancelGesture();
+    }
   }
 
   function handleEnableSound() {
     void unlockAudio().then(() => playSoundEffect("sound-check", settings.audioEnabled));
   }
 
-  function handlePointerProbe(event: PointerEvent<HTMLDivElement>, point: BoardPoint, allowCollision: boolean) {
-    const board = eventBoard(event);
+  // Uses the board size captured at gesture start so one gesture never mixes two layouts.
+  function handlePointerProbe(point: BoardPoint, board: BoardSize, allowCollision: boolean) {
     const cell = pointToCell(point, board, level.config);
     const collision = resolveDragCollision(cell, level.mines, level.markedCells);
     if (allowCollision && collision.exploded && collision.cell) {
@@ -323,16 +373,21 @@ export function BoardShell({
     >
       <div
         className={[
-          "relative min-h-[520px] flex-1 touch-none select-none overflow-hidden rounded bg-black",
+          "relative flex-1 touch-none select-none overflow-hidden rounded bg-black [-webkit-touch-callout:none]",
           active ? "cursor-crosshair" : "cursor-default border border-red-950/60",
         ].join(" ")}
         role="application"
         aria-label="BlindSweeper minefield"
+        onContextMenu={(event) => event.preventDefault()}
+        onLostPointerCapture={handlePointerCancel}
         onPointerCancel={handlePointerCancel}
         onPointerDown={handlePointerDown}
+        onPointerLeave={handlePointerLeave}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         style={{
+          // Cap the minimum at the usable viewport (header, padding, safe areas) so short landscape screens don't overflow.
+          minHeight: "min(520px, calc(100dvh - 6rem - env(safe-area-inset-top) - env(safe-area-inset-bottom)))",
           backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)`,
           backgroundSize: `calc(100% / ${level.config.cols}) calc(100% / ${level.config.rows})`,
           backgroundPosition: `calc(50% / ${level.config.cols}) calc(50% / ${level.config.rows})`,

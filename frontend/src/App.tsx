@@ -78,7 +78,7 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
   override render() {
     if (this.state.hasError) {
       return (
-        <main className="flex min-h-dvh items-center justify-center bg-black px-6 text-white">
+        <main className="flex min-h-dvh items-center justify-center bg-black px-[max(1.5rem,env(safe-area-inset-left))] text-white">
           <section className="w-full max-w-md rounded border border-red-900/70 bg-red-950/20 p-5">
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-red-300">Recovery</p>
             <h1 className="mt-3 text-2xl font-semibold">BlindSweeper could not render this save.</h1>
@@ -293,7 +293,7 @@ function BlindSweeperApp() {
 
   if (route === "game") {
     return (
-      <main className="relative flex min-h-dvh flex-col bg-black text-zinc-100">
+      <main className="safe-area-pad relative flex min-h-dvh flex-col bg-black text-zinc-100">
         {levelJustCompleted && snapshot && (
           <LevelCompleteOverlay
             levelNumber={snapshot.currentLevel.levelNumber}

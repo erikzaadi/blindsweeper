@@ -8,7 +8,7 @@
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  min-height: 100dvh;
   background: #000;
 }
 
@@ -25,4 +25,17 @@ body {
 
 .animate-trail {
   animation: trail-fade-out 0.8s forwards cubic-bezier(0.1, 0.8, 0.25, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-trail {
+    animation: none;
+    opacity: 0.35;
+    transform: translate(-50%, -50%);
+  }
+}
+
+/* Keeps content clear of the notch and status bar with viewport-fit=cover (zero in normal tabs). */
+@utility safe-area-pad {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }

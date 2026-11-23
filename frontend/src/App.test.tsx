@@ -209,7 +209,7 @@ describe("board pointer events", () => {
     const board = mockBoard();
 
     fireEvent.pointerDown(board, { clientX: 100, clientY: 100, pointerId: 1 });
-    fireEvent.pointerCancel(board);
+    fireEvent.pointerCancel(board, { pointerId: 1 });
 
     // pointerUp after cancel should not mark because ref was cleared
     fireEvent.pointerUp(board, { clientX: 100, clientY: 100, pointerId: 1 });
@@ -313,5 +313,116 @@ describe("enable sound control", () => {
       vi.unstubAllGlobals();
       FakeAudioContext.reset();
     }
+  });
+});
+
+describe("board gestures", () => {
+  function cellPoint(row: number, col: number) {
+    return { clientX: col * 50 + 25, clientY: row * 50 + 25 };
+  }
+
+  function marks() {
+    return document.querySelectorAll('img[src*="mark"]').length;
+  }
+
+  it("a second pointer cannot mark or take over the gesture", () => {
+    seedActive();
+    renderAt("/game");
+    const board = mockBoard();
+
+    fireEvent.pointerDown(board, { ...cellPoint(0, 0), pointerId: 1, pointerType: "touch" });
+    fireEvent.pointerDown(board, { ...cellPoint(4, 4), pointerId: 2, pointerType: "touch" });
+    fireEvent.pointerUp(board, { ...cellPoint(4, 4), pointerId: 2, pointerType: "touch" });
+    expect(marks()).toBe(0);
+
+    fireEvent.pointerUp(board, { ...cellPoint(0, 0), pointerId: 1, pointerType: "touch" });
+    expect(marks()).toBe(1);
+  });
+
+  it("right-click does not mark", () => {
+    seedActive();
+    renderAt("/game");
+    const board = mockBoard();
+
+    fireEvent.pointerDown(board, { ...cellPoint(0, 0), pointerId: 1, pointerType: "mouse", button: 2 });
+    fireEvent.pointerUp(board, { ...cellPoint(0, 0), pointerId: 1, pointerType: "mouse", button: 2 });
+
+    expect(marks()).toBe(0);
+  });
+
+  it("left-click marks", () => {
+    seedActive();
+    renderAt("/game");
+    const board = mockBoard();
+
+    fireEvent.pointerDown(board, { ...cellPoint(0, 0), pointerId: 1, pointerType: "mouse", button: 0 });
+    fireEvent.pointerUp(board, { ...cellPoint(0, 0), pointerId: 1, pointerType: "mouse", button: 0 });
+
+    expect(marks()).toBe(1);
+  });
+
+  it("losing pointer capture mid-gesture cancels it", () => {
+    seedActive();
+    renderAt("/game");
+    const board = mockBoard();
+
+    fireEvent.pointerDown(board, { ...cellPoint(0, 0), pointerId: 1 });
+    fireEvent.lostPointerCapture(board, { pointerId: 1 });
+    fireEvent.pointerUp(board, { ...cellPoint(0, 0), pointerId: 1 });
+
+    expect(marks()).toBe(0);
+  });
+
+  it("a cancel for another pointer leaves the gesture alone", () => {
+    seedActive();
+    renderAt("/game");
+    const board = mockBoard();
+
+    fireEvent.pointerDown(board, { ...cellPoint(0, 0), pointerId: 1 });
+    fireEvent.pointerCancel(board, { pointerId: 2 });
+    fireEvent.pointerUp(board, { ...cellPoint(0, 0), pointerId: 1 });
+
+    expect(marks()).toBe(1);
+  });
+
+  it("still plays when pointer capture fails", () => {
+    seedActive();
+    renderAt("/game");
+    const board = mockBoard();
+    board.setPointerCapture = vi.fn(() => {
+      throw new DOMException("No active pointer", "NotFoundError");
+    });
+
+    fireEvent.pointerDown(board, { ...cellPoint(0, 0), pointerId: 1 });
+    fireEvent.pointerUp(board, { ...cellPoint(0, 0), pointerId: 1 });
+
+    expect(marks()).toBe(1);
+  });
+
+  it("an uncaptured pointer leaving the board cancels the gesture", () => {
+    seedActive();
+    renderAt("/game");
+    const board = mockBoard();
+    board.setPointerCapture = vi.fn(() => {
+      throw new DOMException("No active pointer", "NotFoundError");
+    });
+
+    fireEvent.pointerDown(board, { ...cellPoint(0, 0), pointerId: 1 });
+    fireEvent.pointerLeave(board, { pointerId: 1 });
+    fireEvent.pointerUp(board, { ...cellPoint(0, 0), pointerId: 1 });
+
+    expect(marks()).toBe(0);
+  });
+
+  it("a resize mid-gesture cancels it", () => {
+    seedActive();
+    renderAt("/game");
+    const board = mockBoard();
+
+    fireEvent.pointerDown(board, { ...cellPoint(0, 0), pointerId: 1 });
+    fireEvent(window, new Event("resize"));
+    fireEvent.pointerUp(board, { ...cellPoint(0, 0), pointerId: 1 });
+
+    expect(marks()).toBe(0);
   });
 });
