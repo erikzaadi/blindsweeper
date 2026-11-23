@@ -11,10 +11,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
+  // CI logs list each test with its browser project; the HTML report is uploaded on failure.
+  reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "html",
   use: {
     baseURL: externalBaseUrl ?? LOCAL_URL,
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
   },
   projects: [
     {
@@ -24,6 +25,18 @@ export default defineConfig({
     {
       name: "mobile-chrome",
       use: { ...devices["Pixel 7"] },
+    },
+    {
+      name: "firefox",
+      use: { ...devices["Desktop Firefox"] },
+    },
+    {
+      name: "webkit",
+      use: { ...devices["Desktop Safari"] },
+    },
+    {
+      name: "mobile-safari",
+      use: { ...devices["iPhone 15"] },
     },
   ],
   webServer: externalBaseUrl ? undefined : {

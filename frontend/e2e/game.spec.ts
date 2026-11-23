@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { FIXTURE_MINES, SAFE_CELL, dragBetween, openFixtureGame, tapCell } from "./fixtures";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
@@ -43,43 +44,76 @@ test.describe("starting a run", () => {
 });
 
 test.describe("board interaction", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.getByRole("button", { name: /new run/i }).click();
-  });
+  test("tapping board marks a cell", async ({ page, hasTouch }) => {
+    const board = await openFixtureGame(page);
 
-  test("tapping board increments marked count", async ({ page }) => {
-    const board = page.getByRole("application", { name: /minefield/i });
-    const box = await board.boundingBox();
-    expect(box).not.toBeNull();
-
-    await board.click({
-      position: { x: Math.floor(box!.width / 2), y: Math.floor(box!.height / 2) },
-    });
+    await tapCell(page, board, SAFE_CELL, hasTouch);
 
     await expect(board.locator("img[src*='mark']")).toHaveCount(1);
   });
 
-  test("tapping same cell twice does not unmark", async ({ page }) => {
-    const board = page.getByRole("application", { name: /minefield/i });
-    const box = await board.boundingBox();
-    expect(box).not.toBeNull();
-    const pos = { x: Math.floor(box!.width / 2), y: Math.floor(box!.height / 2) };
+  test("tapping same cell twice does not unmark", async ({ page, hasTouch }) => {
+    const board = await openFixtureGame(page);
 
-    await board.click({ position: pos });
+    await tapCell(page, board, SAFE_CELL, hasTouch);
     await expect(board.locator("img[src*='mark']")).toHaveCount(1);
 
-    await board.click({ position: pos });
+    await tapCell(page, board, SAFE_CELL, hasTouch);
     await expect(board.locator("img[src*='mark']")).toHaveCount(1);
   });
 
-  test("restart button resets marked count", async ({ page }) => {
-    const board = page.getByRole("application", { name: /minefield/i });
-    const box = await board.boundingBox();
-    expect(box).not.toBeNull();
+  test("marking a mine increments the mine count", async ({ page, hasTouch }) => {
+    const board = await openFixtureGame(page);
 
-    await board.click({
-      position: { x: Math.floor(box!.width / 2), y: Math.floor(box!.height / 2) },
-    });
+    await tapCell(page, board, FIXTURE_MINES[0], hasTouch);
+
+    await expect(page.getByText(/1\/3 mines/i)).toBeVisible();
+  });
+
+  test("marking every mine completes the level", async ({ page, hasTouch }) => {
+    const board = await openFixtureGame(page);
+
+    for (const mine of FIXTURE_MINES) {
+      await tapCell(page, board, mine, hasTouch);
+    }
+
+    await expect(page.getByText(/cleared/i)).toBeVisible();
+    await expect(page.getByRole("button", { name: /next level/i })).toBeVisible();
+  });
+
+  test("dragging across safe cells does not mark or explode", async ({ page }) => {
+    const board = await openFixtureGame(page);
+
+    await dragBetween(page, board, SAFE_CELL, { row: 5, col: 0 });
+
+    await expect(board.locator("img[src*='mark']")).toHaveCount(0);
+    await expect(board.locator("img[src*='explosion']")).toHaveCount(0);
+    await expect(page.getByText(/0\/3 mines/i)).toBeVisible();
+  });
+
+  test("dragging onto an unmarked mine explodes", async ({ page }) => {
+    const board = await openFixtureGame(page);
+
+    await dragBetween(page, board, SAFE_CELL, FIXTURE_MINES[0]);
+
+    await expect(board.locator("img[src*='explosion']")).toHaveCount(1);
+    // The header hides the mine counter once the run has failed.
+    await expect(page.getByText(/\d+\/3 mines/i)).toHaveCount(0);
+  });
+
+  test("dragging onto a marked mine does not explode", async ({ page, hasTouch }) => {
+    const board = await openFixtureGame(page);
+
+    await tapCell(page, board, FIXTURE_MINES[0], hasTouch);
+    await dragBetween(page, board, SAFE_CELL, FIXTURE_MINES[0]);
+
+    await expect(board.locator("img[src*='explosion']")).toHaveCount(0);
+  });
+
+  test("restart button resets marked count", async ({ page, hasTouch }) => {
+    const board = await openFixtureGame(page);
+
+    await tapCell(page, board, SAFE_CELL, hasTouch);
     await expect(board.locator("img[src*='mark']")).toHaveCount(1);
 
     await page.getByRole("button", { name: /restart/i }).click();
@@ -87,9 +121,40 @@ test.describe("board interaction", () => {
   });
 
   test("back button returns to home with resume option", async ({ page }) => {
+    await openFixtureGame(page);
+
     await page.getByRole("button", { name: /back/i }).click();
+
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByRole("button", { name: /resume run/i })).toBeVisible();
+  });
+});
+
+test.describe("navigation", () => {
+  test("browser back and forward move between home and game", async ({ page }) => {
+    await page.getByRole("button", { name: /new run/i }).click();
+    await expect(page).toHaveURL(/\/game/);
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("button", { name: /resume run/i })).toBeVisible();
+
+    await page.goForward();
+    await expect(page).toHaveURL(/\/game/);
+    await expect(page.getByText(/lv 1/i)).toBeVisible();
+  });
+
+  test("reload on /game keeps the level and its marks", async ({ page, hasTouch }) => {
+    const board = await openFixtureGame(page);
+    await tapCell(page, board, FIXTURE_MINES[0], hasTouch);
+    await expect(page.getByText(/1\/3 mines/i)).toBeVisible();
+
+    await page.reload();
+
+    await expect(page).toHaveURL(/\/game/);
+    await expect(page.getByText(/lv 1/i)).toBeVisible();
+    await expect(page.getByText(/1\/3 mines/i)).toBeVisible();
+    await expect(page.getByRole("application", { name: /minefield/i }).locator("img[src*='mark']")).toHaveCount(1);
   });
 });
 
