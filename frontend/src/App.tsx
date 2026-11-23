@@ -323,6 +323,7 @@ function BlindSweeperApp() {
               onExplodeCell={handleExplodeCell}
               onMarkCell={handleMarkCell}
               onProximityChange={setProximityIntensity}
+              onEnableVisualFeedback={() => handleSettingsChange({ ...state.settings, visualFallbackEnabled: true })}
             />
           </>
         ) : (

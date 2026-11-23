@@ -22,8 +22,9 @@ import type {
 import { BOMB_ASSET_URL, EXPLOSION_ASSET_URL, MARK_ASSET_URL, MARK_CONFIRMED_ASSET_URL } from "../lib/assets";
 import {
   getFeedbackCapabilities,
-  playFeedbackTone,
+  isAudioRunning,
   playSoundEffect,
+  resumeAudioIfVisible,
   runFeedback,
   subscribeFeedbackCapabilities,
   triggerHaptic,
@@ -112,6 +113,7 @@ export function BoardShell({
   onExplodeCell,
   onMarkCell,
   onProximityChange,
+  onEnableVisualFeedback,
 }: {
   settings: GameSettings;
   level: LevelState;
@@ -120,10 +122,10 @@ export function BoardShell({
   onExplodeCell: (cell: CellCoord) => void;
   onMarkCell: (cell: CellCoord) => void;
   onProximityChange: (intensity: number) => void;
+  onEnableVisualFeedback: () => void;
 }) {
   const pointerStartRef = useRef<PointerStart | null>(null);
   const lastFeedbackAtRef = useRef<number>(0);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const [proximityIntensity, setProximityIntensity] = useState(0);
   const [hoverPoint, setHoverPoint] = useState<BoardPoint | null>(null);
   const [activeLevelId, setActiveLevelId] = useState<string>(level.id);
@@ -131,23 +133,40 @@ export function BoardShell({
   const [probedCells, setProbedCells] = useState<CellCoord[]>([]);
   const [feedbackCapabilities, setFeedbackCapabilities] = useState(getFeedbackCapabilities);
   const active = level.status === "active";
+  const visualFeedback = settings.visualFallbackEnabled && active;
   const needsAudioUnlock = settings.audioEnabled
     && feedbackCapabilities.audioSupported
     && !feedbackCapabilities.audioUnlocked;
+  const hasAudioFeedback = settings.audioEnabled && feedbackCapabilities.audioSupported;
+  // The iOS switch fallback is unverified, so only real vibration counts as feedback here.
+  const hasHapticFeedback = settings.hapticsEnabled && feedbackCapabilities.hapticsSupported;
+  const noProximityFeedback = !settings.visualFallbackEnabled && !hasAudioFeedback && !hasHapticFeedback;
 
-  // Use native DOM listeners (not React synthetic events) so iOS recognizes
-  // the first touch as a user gesture and allows AudioContext.resume() to succeed.
+  // Native capture-phase listeners run before React's handlers, so the context is
+  // resumed before a mark sound plays. Only these events grant user activation:
+  // touch pointerup/touchend, mouse pointerdown, keydown. They stay attached so a
+  // later gesture can recover audio after an interruption or failed unlock.
   useEffect(() => {
-    function unlock() {
-      unlockAudio(audioContextRef);
+    if (!settings.audioEnabled) {
+      return;
     }
-    document.addEventListener("touchstart", unlock, { once: true, passive: true });
-    document.addEventListener("pointerdown", unlock, { once: true });
+    function unlock(event: Event) {
+      if (event.type === "pointerdown" && (event as globalThis.PointerEvent).pointerType !== "mouse") {
+        return;
+      }
+      if (!isAudioRunning()) {
+        void unlockAudio();
+      }
+    }
+    const options = { capture: true, passive: true };
+    const events = ["pointerdown", "pointerup", "touchend", "keydown"] as const;
+    events.forEach((type) => document.addEventListener(type, unlock, options));
+    document.addEventListener("visibilitychange", resumeAudioIfVisible);
     return () => {
-      document.removeEventListener("touchstart", unlock);
-      document.removeEventListener("pointerdown", unlock);
+      events.forEach((type) => document.removeEventListener(type, unlock, options));
+      document.removeEventListener("visibilitychange", resumeAudioIfVisible);
     };
-  }, []);
+  }, [settings.audioEnabled]);
 
   useEffect(() => {
     return subscribeFeedbackCapabilities(setFeedbackCapabilities);
@@ -195,7 +214,6 @@ export function BoardShell({
     }
 
     event.currentTarget.setPointerCapture(event.pointerId);
-    unlockAudio(audioContextRef);
     const point = eventPoint(event);
     const board = eventBoard(event);
     pointerStartRef.current = {
@@ -235,7 +253,7 @@ export function BoardShell({
     if (tapped && !containsCell(level.markedCells, cell)) {
       playSoundEffect("mark", settings.audioEnabled);
       if (settings.hapticsEnabled) {
-        triggerHaptic(30, 0.5);
+        triggerHaptic(30);
       }
       onMarkCell(cell);
     }
@@ -249,8 +267,7 @@ export function BoardShell({
   }
 
   function handleEnableSound() {
-    unlockAudio(audioContextRef);
-    playFeedbackTone(0.65, audioContextRef, false);
+    void unlockAudio().then(() => playSoundEffect("sound-check", settings.audioEnabled));
   }
 
   function handlePointerProbe(event: PointerEvent<HTMLDivElement>, point: BoardPoint, allowCollision: boolean) {
@@ -261,7 +278,7 @@ export function BoardShell({
       pointerStartRef.current = null;
       setHoverPoint(null);
       updateProximity(1);
-      runFeedback(1, settings, audioContextRef, lastFeedbackAtRef, true);
+      runFeedback(1, settings, lastFeedbackAtRef, true);
       onExplodeCell(collision.cell);
       return;
     }
@@ -292,14 +309,14 @@ export function BoardShell({
     });
 
     updateProximity(proximity.intensity);
-    runFeedback(proximity.intensity, settings, audioContextRef, lastFeedbackAtRef, false);
+    runFeedback(proximity.intensity, settings, lastFeedbackAtRef, false);
   }
 
   return (
     <div
       className="relative flex flex-1 items-stretch bg-black p-3 sm:p-5"
       style={{
-        backgroundColor: settings.visualFallbackEnabled && active
+        backgroundColor: visualFeedback
           ? `rgb(${Math.round(6 + proximityIntensity * 42)} ${Math.round(6 + proximityIntensity * 10)} ${Math.round(6 + proximityIntensity * 10)})`
           : "#000",
       }}
@@ -319,20 +336,21 @@ export function BoardShell({
           backgroundImage: `radial-gradient(circle, rgba(255,255,255,0.045) 1px, transparent 1px)`,
           backgroundSize: `calc(100% / ${level.config.cols}) calc(100% / ${level.config.rows})`,
           backgroundPosition: `calc(50% / ${level.config.cols}) calc(50% / ${level.config.rows})`,
-          boxShadow: active
+          boxShadow: visualFeedback
             ? [
               `inset 0 0 ${Math.round(20 + proximityIntensity * 160)}px rgba(16, 185, 129, ${(0.05 + proximityIntensity * 0.60).toFixed(2)})`,
               `inset 0 0 ${Math.round(proximityIntensity * 40)}px rgba(52, 211, 153, ${(proximityIntensity * 0.45).toFixed(2)})`,
               `0 0 ${Math.round(proximityIntensity * 28)}px rgba(16, 185, 129, ${(proximityIntensity * 0.55).toFixed(2)})`,
             ].join(", ")
-            : "inset 0 0 96px rgba(127, 29, 29, 0.28)",
-          outline: active && proximityIntensity > 0.05
+            // Without visual feedback, keep the static edge glow so the board stays findable.
+            : active ? "inset 0 0 20px rgba(16, 185, 129, 0.05)" : "inset 0 0 96px rgba(127, 29, 29, 0.28)",
+          outline: visualFeedback && proximityIntensity > 0.05
             ? `${Math.round(1 + proximityIntensity * 3)}px solid rgba(52, 211, 153, ${(proximityIntensity * 0.85).toFixed(2)})`
             : undefined,
           outlineOffset: "-1px",
         }}
       >
-        {active && trail.map((p) => {
+        {visualFeedback && trail.map((p) => {
           return (
             <div
               key={p.id}
@@ -353,7 +371,7 @@ export function BoardShell({
             />
           );
         })}
-        {hoverPoint && settings.visualFallbackEnabled && active && (
+        {hoverPoint && visualFeedback && (
           <div
             aria-hidden="true"
             className="pointer-events-none absolute flex items-center justify-center"
@@ -374,34 +392,6 @@ export function BoardShell({
                   : undefined,
               }}
             />
-          </div>
-        )}
-        {active && (
-          <div className="pointer-events-none absolute left-3 top-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-2">
-            {needsAudioUnlock && (
-              <button
-                className="pointer-events-auto rounded border border-emerald-500/70 bg-black/85 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.18)]"
-                type="button"
-                onClick={handleEnableSound}
-              >
-                Enable sound
-              </button>
-            )}
-            {settings.audioEnabled && feedbackCapabilities.audioSupported && feedbackCapabilities.audioUnlocked && (
-              <span className="rounded border border-zinc-700/80 bg-black/75 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-zinc-400">
-                Sound ready
-              </span>
-            )}
-            {settings.audioEnabled && !feedbackCapabilities.audioSupported && (
-              <span className="rounded border border-red-900/70 bg-black/75 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-red-300">
-                Sound unavailable
-              </span>
-            )}
-            {settings.hapticsEnabled && !feedbackCapabilities.hapticsSupported && (
-              <span className="rounded border border-zinc-700/80 bg-black/75 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-zinc-500">
-                Haptics unavailable
-              </span>
-            )}
           </div>
         )}
         {level.explosionCell && (
@@ -464,6 +454,43 @@ export function BoardShell({
           );
         })}
       </div>
+      {active && (
+        <div className="pointer-events-none absolute left-6 top-6 z-10 flex max-w-[calc(100%-3rem)] sm:left-8 sm:top-8 sm:max-w-[calc(100%-4rem)] flex-wrap gap-2">
+          {needsAudioUnlock && (
+            <button
+              className="pointer-events-auto rounded border border-emerald-500/70 bg-black/85 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-emerald-200 shadow-[0_0_18px_rgba(16,185,129,0.18)]"
+              type="button"
+              onClick={handleEnableSound}
+            >
+              Enable sound
+            </button>
+          )}
+          {settings.audioEnabled && feedbackCapabilities.audioSupported && feedbackCapabilities.audioUnlocked && (
+            <span className="rounded border border-zinc-700/80 bg-black/75 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-zinc-400">
+              Sound ready
+            </span>
+          )}
+          {settings.audioEnabled && !feedbackCapabilities.audioSupported && (
+            <span className="rounded border border-red-900/70 bg-black/75 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-red-300">
+              Sound unavailable
+            </span>
+          )}
+          {settings.hapticsEnabled && !feedbackCapabilities.hapticsSupported && (
+            <span className="rounded border border-zinc-700/80 bg-black/75 px-2.5 py-1.5 text-[0.65rem] font-semibold uppercase tracking-widest text-zinc-500">
+              {feedbackCapabilities.hapticsFallback ? "Haptics limited" : "Haptics unavailable"}
+            </span>
+          )}
+          {noProximityFeedback && (
+            <button
+              className="pointer-events-auto rounded border border-amber-600/70 bg-black/85 px-3 py-2 text-xs font-semibold uppercase tracking-widest text-amber-200"
+              type="button"
+              onClick={onEnableVisualFeedback}
+            >
+              No proximity feedback: turn on visuals
+            </button>
+          )}
+        </div>
+      )}
       {showGestureHint && active ? (
         <GestureHint onDismiss={onDismissGestureHint} />
       ) : null}

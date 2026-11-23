@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { failCurrentLevel, createInitialGameState, startRun } from "./lib/gameState";
 import { DEFAULT_SETTINGS, savePersistedGameState } from "./lib/localStorageState";
+import { FakeAudioContext } from "./test/fakeAudioContext";
 
 function renderAt(path: string) {
   window.history.pushState({}, "", path);
@@ -282,6 +283,35 @@ describe("blocked storage", () => {
       } else {
         delete (window as { localStorage?: Storage }).localStorage;
       }
+    }
+  });
+});
+
+describe("enable sound control", () => {
+  it("pressing Enable sound with pointer, click or keyboard never probes or marks", async () => {
+    FakeAudioContext.reset();
+    // Pending resume keeps the button on screen for the whole sequence.
+    FakeAudioContext.resumeBehavior = "pending";
+    vi.stubGlobal("AudioContext", FakeAudioContext);
+    vi.resetModules();
+    try {
+      const { App: FreshApp } = await import("./App");
+      seedActive();
+      window.history.pushState({}, "", "/game");
+      render(<FreshApp />);
+
+      const button = screen.getByRole("button", { name: /enable sound/i });
+      fireEvent.pointerDown(button, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "touch" });
+      fireEvent.pointerUp(button, { clientX: 20, clientY: 20, pointerId: 1, pointerType: "touch" });
+      fireEvent.click(button);
+      fireEvent.keyDown(button, { key: "Enter" });
+
+      expect(document.querySelectorAll('img[src*="mark"]').length).toBe(0);
+      expect(screen.getByText(/0\/3 mines/i)).toBeInTheDocument();
+      expect(FakeAudioContext.instances).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+      FakeAudioContext.reset();
     }
   });
 });

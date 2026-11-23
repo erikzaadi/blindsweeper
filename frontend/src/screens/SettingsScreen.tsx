@@ -68,7 +68,7 @@ export function SettingsScreen({
           <SettingToggle
             checked={settings.visualFallbackEnabled}
             label="Visual feedback"
-            description="Color and meter while dragging"
+            description="Glow, trail, color and meter while dragging"
             onChange={(checked) => onChange({ ...settings, visualFallbackEnabled: checked })}
           />
           {import.meta.env.DEV && (
