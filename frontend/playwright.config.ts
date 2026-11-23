@@ -1,5 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const LOCAL_PORT = 3333;
+const LOCAL_URL = `http://localhost:${LOCAL_PORT}`;
+// An external PLAYWRIGHT_BASE_URL means that server is already running.
+const externalBaseUrl = process.env.PLAYWRIGHT_BASE_URL;
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
@@ -8,7 +13,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: "html",
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:5173",
+    baseURL: externalBaseUrl ?? LOCAL_URL,
     trace: "on-first-retry",
   },
   projects: [
@@ -21,9 +26,9 @@ export default defineConfig({
       use: { ...devices["Pixel 7"] },
     },
   ],
-  webServer: {
-    command: "npm run dev",
-    url: "http://localhost:5173",
+  webServer: externalBaseUrl ? undefined : {
+    command: `npm run dev -- --port ${LOCAL_PORT} --strictPort`,
+    url: LOCAL_URL,
     reuseExistingServer: !process.env.CI,
   },
 });

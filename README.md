@@ -63,7 +63,7 @@ npm run install:all
 npm run dev
 ```
 
-Frontend runs at `http://localhost:5173`.
+Frontend runs at `http://localhost:3333`.
 
 No environment variables needed for normal development.
 

@@ -259,3 +259,29 @@ describe("board pointer events", () => {
     expect(document.querySelectorAll('img[src*="mark"]').length).toBe(1);
   });
 });
+
+describe("blocked storage", () => {
+  it("stays playable and shows a save notice when localStorage is blocked", () => {
+    const original = Object.getOwnPropertyDescriptor(window, "localStorage");
+    Object.defineProperty(window, "localStorage", {
+      configurable: true,
+      get() {
+        throw new DOMException("The operation is insecure.", "SecurityError");
+      },
+    });
+    try {
+      renderAt("/");
+      expect(screen.getByRole("button", { name: /new run/i })).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(/progress can't be saved/i);
+
+      fireEvent.click(screen.getByRole("button", { name: /new run/i }));
+      expect(screen.getByText(/lv 1/i)).toBeInTheDocument();
+    } finally {
+      if (original) {
+        Object.defineProperty(window, "localStorage", original);
+      } else {
+        delete (window as { localStorage?: Storage }).localStorage;
+      }
+    }
+  });
+});

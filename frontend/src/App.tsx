@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { containsCell } from "./game/gameEngine";
 import type {
@@ -29,8 +30,14 @@ import {
 import {
   DEFAULT_PROFILE_ID,
   clearPersistedGameState,
+  createEmptyPersistedGameState,
+  disablePersistence,
+  getSaveFailed,
   loadPersistedGameState,
+  readFlag,
   savePersistedGameState,
+  subscribeSaveStatus,
+  writeFlag,
 } from "./lib/localStorageState";
 import { playSoundEffect } from "./lib/audio";
 import { GESTURE_HINT_KEY, HOWTO_SEEN_KEY } from "./lib/assets";
@@ -51,14 +58,16 @@ type AppErrorBoundaryProps = {
 
 type AppErrorBoundaryState = {
   hasError: boolean;
+  resetFailed: boolean;
 };
 
 class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
   override state: AppErrorBoundaryState = {
     hasError: false,
+    resetFailed: false,
   };
 
-  static getDerivedStateFromError(): AppErrorBoundaryState {
+  static getDerivedStateFromError(): Partial<AppErrorBoundaryState> {
     return { hasError: true };
   }
 
@@ -69,20 +78,41 @@ class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundary
   override render() {
     if (this.state.hasError) {
       return (
-        <main className="flex min-h-screen items-center justify-center bg-black px-6 text-white">
+        <main className="flex min-h-dvh items-center justify-center bg-black px-6 text-white">
           <section className="w-full max-w-md rounded border border-red-900/70 bg-red-950/20 p-5">
             <p className="text-sm font-semibold uppercase tracking-[0.16em] text-red-300">Recovery</p>
             <h1 className="mt-3 text-2xl font-semibold">BlindSweeper could not render this save.</h1>
-            <button
-              className="mt-5 w-full rounded border border-red-400/60 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-400/10"
-              type="button"
-              onClick={() => {
-                clearPersistedGameState();
-                window.location.reload();
-              }}
-            >
-              Reset local data
-            </button>
+            {this.state.resetFailed ? (
+              <>
+                <p className="mt-3 text-sm text-red-200/80">
+                  Saved data could not be removed in this browser. You can keep playing, but progress will not be saved.
+                </p>
+                <button
+                  className="mt-5 w-full rounded border border-red-400/60 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-400/10"
+                  type="button"
+                  onClick={() => {
+                    disablePersistence();
+                    this.setState({ hasError: false, resetFailed: false });
+                  }}
+                >
+                  Continue without saving
+                </button>
+              </>
+            ) : (
+              <button
+                className="mt-5 w-full rounded border border-red-400/60 px-4 py-2 text-sm font-semibold text-red-100 hover:bg-red-400/10"
+                type="button"
+                onClick={() => {
+                  if (clearPersistedGameState()) {
+                    window.location.reload();
+                    return;
+                  }
+                  this.setState({ resetFailed: true });
+                }}
+              >
+                Reset local data
+              </button>
+            )}
           </section>
         </main>
       );
@@ -96,7 +126,24 @@ export function App() {
   return (
     <AppErrorBoundary>
       <BlindSweeperApp />
+      <SaveFailedNotice />
     </AppErrorBoundary>
+  );
+}
+
+function SaveFailedNotice() {
+  const saveFailed = useSyncExternalStore(subscribeSaveStatus, getSaveFailed);
+  if (!saveFailed) {
+    return null;
+  }
+
+  return (
+    <p
+      className="pointer-events-none fixed inset-x-0 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-50 mx-auto w-fit max-w-[calc(100%-2rem)] rounded border border-amber-700/60 bg-black/90 px-3 py-1.5 text-center text-xs text-amber-200"
+      role="status"
+    >
+      Progress can't be saved in this browser.
+    </p>
   );
 }
 
@@ -104,10 +151,10 @@ function BlindSweeperApp() {
   const [state, setState] = useState<PersistedGameState>(() => loadPersistedGameState());
   const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname));
   const [gestureHintDismissed, setGestureHintDismissed] = useState(
-    () => localStorage.getItem(GESTURE_HINT_KEY) === "1",
+    () => readFlag(GESTURE_HINT_KEY),
   );
   const [onboardingDismissed, setOnboardingDismissed] = useState(
-    () => localStorage.getItem(HOWTO_SEEN_KEY) === "1",
+    () => readFlag(HOWTO_SEEN_KEY),
   );
   const [confirmingNewRun, setConfirmingNewRun] = useState(false);
   const [proximityIntensity, setProximityIntensity] = useState(0);
@@ -166,7 +213,7 @@ function BlindSweeperApp() {
   }
 
   function handleDismissGestureHint() {
-    localStorage.setItem(GESTURE_HINT_KEY, "1");
+    writeFlag(GESTURE_HINT_KEY);
     setGestureHintDismissed(true);
   }
 
@@ -208,7 +255,7 @@ function BlindSweeperApp() {
   }
 
   function handleDismissOnboarding() {
-    localStorage.setItem(HOWTO_SEEN_KEY, "1");
+    writeFlag(HOWTO_SEEN_KEY);
     setOnboardingDismissed(true);
   }
 
@@ -235,7 +282,8 @@ function BlindSweeperApp() {
   }
 
   function handleClearData() {
-    setState(clearPersistedGameState());
+    clearPersistedGameState();
+    setState(createEmptyPersistedGameState());
     navigateTo("home", setRoute);
   }
 
